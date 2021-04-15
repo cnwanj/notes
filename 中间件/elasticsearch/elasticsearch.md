@@ -359,7 +359,7 @@ GET _analyze
 | GET    | localhost:9200/索引名称/类型名称/文档id         | 通过id查询文档         |
 | POST   | localhost:9200/索引名称/类型名称/_search        | 查询所有文档           |
 
-## （1）操作索引
+## 6.1操作索引
 
 在Kibana的开发工具中进行索引操作
 
@@ -511,7 +511,7 @@ DELETE /test1
 
 ![image-20210404221809025](upload/image-20210404221809025.png)
 
-## （2）文档操作
+## 6.2文档操作
 
 ### 1.创建文档
 
@@ -582,4 +582,193 @@ GET user/student/_search?q=name:李四
 
 ![image-20210404230731939](upload/image-20210404230731939.png)
 
-## （3）复杂查询
+## 6.3复杂查询
+
+1.match查询
+
+hit：查询到的对象，包含了索引、文档信息、总数和分值等，其中分值越大，越符合查询结果，也排在越靠前的位置。
+
+```json
+GET user/student/_search
+{
+  "query": {
+    "match": {
+      "name": "张三"
+    }
+  }
+}
+```
+
+![image-20210415215020642](upload/image-20210415215020642.png)
+
+2._source只查询对应属性的信息
+
+```json
+GET user/student/_search
+{
+  "query": {
+    "match": {
+      "name": "张三"
+    }
+  },
+  "_source": ["name", "age"]
+}
+```
+
+如下图只查询了两个属性的信息。
+
+![image-20210415215831010](upload/image-20210415215831010.png)
+
+3.sort排序查询
+
+根据age正序排序
+
+```json
+GET user/student/_search
+{
+  "query": {
+    "match": {
+      "name": "张三"
+    }
+  },
+  "sort": [{
+    "age": {
+      "order": "asc"
+    }
+  }]  
+}
+```
+
+![image-20210415221525067](upload/image-20210415221525067.png)
+
+4.from、size分页查询
+
+- from：起始页，从0开始
+
+- size：单页面数据量
+
+```json
+GET user/student/_search
+{
+  "query": {
+    "match": {
+      "name": "张三"
+    }
+  },
+  "sort": [{
+    "age": {
+      "order": "asc"
+    }
+  }],
+  "from": "0",
+  "size": "1"  
+}
+```
+
+![image-20210415221758574](upload/image-20210415221758574.png)
+
+5.bool多条件查询
+
+（1）must（and）
+
+> must（and），所有条件都要符合查询 ... where id = 1 and name = 'zs'。
+
+```json
+GET user/student/_search
+{
+  "query": {
+    "bool": {
+      "must": [{
+        "match": {
+          "name": "张三"
+        }
+      }, {
+        "match": {
+          "age": "13"
+        }
+      }]
+    }
+  }
+}
+```
+
+![image-20210415222840661](upload/image-20210415222840661.png)
+
+（2）should（or）
+
+> should（or）：只要有一个条件符合 ... where id = 1 or name = 'zs'
+
+```json
+GET user/student/_search
+{
+  "query": {
+    "bool": {
+      "should": [{
+        "match": {
+          "name": "张三"
+        }
+      }, {
+        "match": {
+          "age": "13"
+        }
+      }]
+    }
+  }
+}
+```
+
+![image-20210415223258150](upload/image-20210415223258150.png)
+
+（3）must_not（not）
+
+将年龄不在13岁的全部查出来
+
+```json
+GET user/student/_search
+{
+  "query": {
+    "bool": {
+      "must_not": [{
+        "match": {
+          "age": "13"
+        }
+      }]
+    }
+  }
+}
+```
+
+6.范围查询
+
+- gt（greater than）：大于
+- gte（greater than equal）：大于等于
+- lt（less than）：小于
+- lte（less than equal）：小于等于
+
+查询 age > 15 的数据。
+
+```json
+GET user/student/_search
+{
+  "query": {
+    "bool": {
+      "must": [{
+        "match": {
+          "name": "张三"
+        }
+      }],
+      "filter": [
+        {
+          "range": {
+            "age": {
+              "gt": 15
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+![image-20210415230847347](upload/image-20210415230847347.png)
