@@ -584,7 +584,7 @@ GET user/student/_search?q=name:李四
 
 ## 6.3复杂查询
 
-1.match查询
+### 1.match查询
 
 hit：查询到的对象，包含了索引、文档信息、总数和分值等，其中分值越大，越符合查询结果，也排在越靠前的位置。
 
@@ -601,7 +601,7 @@ GET user/student/_search
 
 ![image-20210415215020642](upload/image-20210415215020642.png)
 
-2._source只查询对应属性的信息
+### 2._source只查询对应属性的信息
 
 ```json
 GET user/student/_search
@@ -619,7 +619,7 @@ GET user/student/_search
 
 ![image-20210415215831010](upload/image-20210415215831010.png)
 
-3.sort排序查询
+### 3.sort排序查询
 
 根据age正序排序
 
@@ -641,7 +641,7 @@ GET user/student/_search
 
 ![image-20210415221525067](upload/image-20210415221525067.png)
 
-4.from、size分页查询
+### 4.from、size分页查询
 
 - from：起始页，从0开始
 
@@ -667,9 +667,9 @@ GET user/student/_search
 
 ![image-20210415221758574](upload/image-20210415221758574.png)
 
-5.bool多条件查询
+### 5.bool多条件查询
 
-（1）must（and）
+#### （1）must（and）
 
 > must（and），所有条件都要符合查询 ... where id = 1 and name = 'zs'。
 
@@ -694,7 +694,7 @@ GET user/student/_search
 
 ![image-20210415222840661](upload/image-20210415222840661.png)
 
-（2）should（or）
+#### （2）should（or）
 
 > should（or）：只要有一个条件符合 ... where id = 1 or name = 'zs'
 
@@ -719,7 +719,7 @@ GET user/student/_search
 
 ![image-20210415223258150](upload/image-20210415223258150.png)
 
-（3）must_not（not）
+#### （3）must_not（not）
 
 将年龄不在13岁的全部查出来
 
@@ -738,7 +738,7 @@ GET user/student/_search
 }
 ```
 
-6.范围查询
+### 6.范围查询
 
 - gt（greater than）：大于
 - gte（greater than equal）：大于等于
@@ -772,3 +772,202 @@ GET user/student/_search
 ```
 
 ![image-20210415230847347](upload/image-20210415230847347.png)
+
+### 7.query多条件查询
+
+#### （1）模糊查询
+
+```json
+GET user/student/_search
+{
+  "query": {
+    "match": {
+      "tags": "男 猪"
+    }
+  }
+}
+```
+
+通过空格可以进行多条件查询，通过分值可以看到，匹配度越高分值越高。
+
+![image-20210424201619023](upload/image-20210424201619023.png)
+
+#### （2）精确查询
+
+> term查询是至二级通过倒排索引指定词条进行精确查询
+
+- term：直接精确查询。
+- match：会使用分词器解析，先分析文档然后通过文档查询。
+
+term的查询效率比match要高。
+
+注意：text类型会被分词器解析，而keyword不会被分词器解析。
+
+**创建一个索引：**
+
+name字段类型为text，而desc类型为keyword
+
+```json
+PUT test1
+{
+  "mappings": {
+    "properties": {
+      "name": {
+        "type": "text"
+      },
+      "desc": {
+        "type": "keyword"
+      }
+    }
+  }
+}
+```
+
+**添加两条数据：**
+
+```json
+PUT test1/_doc/1
+{
+  "name": "张三 name",
+  "desc": "张三 desc"
+}
+
+PUT test1/_doc/2
+{
+  "name": "张三 name2",
+  "desc": "张三 desc2"
+}
+```
+
+**term查询text类型：**
+
+```json
+GET test1/_search
+{
+    "query": {
+        "term": {
+            "name": "张"
+        }
+    }
+}
+```
+
+因为text会被分词解析，所以相关的都会被查询到。
+
+![image-20210424230732701](upload/image-20210424230732701.png)
+
+
+
+**term查询keyword类型：**
+
+```json
+GET test1/_search
+{
+    "query": {
+        "term": {
+            "desc": "张"
+        }
+    }
+}
+```
+
+![image-20210424230750920](upload/image-20210424230750920.png)
+
+```json
+GET test1/_search
+{
+    "query": {
+        "term": {
+            "desc": "张三 desc"
+        }
+    }
+}
+```
+
+![image-20210424231033460](upload/image-20210424231033460.png)
+
+> 因为keyword类型的不会被分词器解析，需要完全匹配才能查询到
+
+#### （3）精确多条件查询
+
+```json
+# 添加两条数据
+PUT test1/_doc/3
+{
+  "t1": "11",
+  "t2": "2020"
+}
+
+PUT test1/_doc/4
+{
+  "t1": "22",
+  "t2": "2021"
+}
+
+# 进行多条件精确查询
+GET test1/_search
+{
+  "query": {
+    "bool": {
+      "should": [
+        {
+          "term": {
+            "t1": "11"
+          }
+        },
+        {
+          "term": {
+            "t1": "22"
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+查询效果如下：
+
+### ![image-20210424232125218](upload/image-20210424232125218.png)8.高亮查询
+
+```json
+GET user/student/_search
+{
+  "query": {
+    "match": {
+      "name": "张三"
+    }
+  },
+  "highlight": {
+    "fields": {
+      "name": {}
+    }
+  }
+}
+```
+
+
+
+![image-20210424232740746](upload/image-20210424232740746.png)
+
+**自定义高亮：**
+
+```json
+GET user/student/_search
+{
+  "query": {
+    "match": {
+      "name": "张三"
+    }
+  },
+  "highlight": {
+    "pre_tags": "<p class='name' style='color: red'>",
+    "post_tags": "</p>", 
+    "fields": {
+      "name": {}
+    }
+  }
+}
+```
+
+![image-20210424233223724](upload/image-20210424233223724.png)
