@@ -4,7 +4,7 @@
 
 ## 1.线程的3种创建方式
 
-### (1)重写Thread的run()方法
+(1)重写Thread的run()方法
 
 ```java
 // 方法1：重写run方法，旧写法
@@ -21,7 +21,7 @@ new Thread(() -> {
 }).start();
 ```
 
-### (2)Runnable()方法实现
+(2)Runnable()方法实现
 
 ```java
 // 方法2：Runnable方法实现
@@ -33,7 +33,7 @@ new Thread(new Runnable() {
 }).start();
 ```
 
-### (3)Callable()方法实现
+(3)Callable()方法实现
 
 > 与Runnble的区别就是Callble该方法具有返回值。
 
@@ -114,9 +114,8 @@ public void method() {
 (6)异常类型错误
 
 ```java
- @Service
+@Service
 public class UserServiceImpl implements UserService {
-
     @Transactional
     public void updateOrder(User user) {
         try {
@@ -130,4 +129,7 @@ public class UserServiceImpl implements UserService {
 
 这样事务也是不生效的，因为默认回滚的是：RuntimeException，如果你想触发其他异常的回滚，需要在注解上配置一下，如：@Transactional(rollbackFor = Exception.class)这个配置仅限于 Throwable 异常类及其子类。 
 
-> 为什么会失效呢？：其实原因很简单，Spring在扫描Bean的时候会自动为标注了@Transactional注解的类生成一个代理类（proxy）,当有注解的方法被调用的时候，实际上是代理类调用的，代理类在调用之前会开启事务，执行事务的操作，但是同类中的方法互相调用，相当于this.B()，此时的B方法并非是代理类调用，而是直接通过原有的Bean直接调用，所以注解会失效。
+> 为什么会失效呢？因为Spring在扫描Bean的时候会自动为标注了@Transactional注解的类生成一个代理类（proxy）,当有注解的方法被调用的时候，实际上是代理类调用的，代理类在调用之前会开启事务，执行事务的操作，但是同类中的方法互相调用，相当于this.B()，此时的B方法并非是代理类调用，而是直接通过原有的Bean直接调用，所以注解会失效。
+
+## 4.分布式、微服务、集群的微妙关系
+
