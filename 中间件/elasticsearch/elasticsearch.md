@@ -4,7 +4,7 @@
 
 Elasticsearch 是一个分布式、RESTful 风格的搜索和数据分析引擎，能够解决不断涌现出的各种用例。
 
-## ES和Solr有什么区别？
+## 1.1ES和Solr有什么区别？
 
 |            | ElasticSearch                        | Solr                                       |
 | ---------- | ------------------------------------ | ------------------------------------------ |
@@ -17,7 +17,7 @@ Elasticsearch 是一个分布式、RESTful 风格的搜索和数据分析引擎�
 
 # 2.安装elasticsearch、elasticsearch head
 
-## 安装elasticsearch
+## 2.1安装elasticsearch
 
 > 安装前需要环境支持：jdk1.8、nodejs
 
@@ -25,7 +25,7 @@ Elasticsearch 是一个分布式、RESTful 风格的搜索和数据分析引擎�
 
 ![image-20210328212037386](upload/image-20210328212037386.png)
 
-### 目录说明：
+### 2.1.2目录说明：
 
 ```
 -bin	启动文件
@@ -43,7 +43,7 @@ Elasticsearch 是一个分布式、RESTful 风格的搜索和数据分析引擎�
 
 ![image-20210404104802830](upload/image-20210404104802830.png)
 
-## 安装elasticsearch head
+## 2.2安装elasticsearch head
 
 > 简介：head是可视化工具，主要用于做数据展示，方便查看自己存储的数据，而对数据的查询一般使用Kibana。
 
@@ -64,7 +64,7 @@ npm run start
 localhost:9100
 ```
 
-### 解决跨域问题：
+### 2.2.1解决跨域问题：
 
 启动后发现存在跨域问题。
 
@@ -93,7 +93,7 @@ ELK是Elasticsearch 、Logstash、Kibana三大开源框架的简称：
 - Logstash：是ELK的中央数据引擎，用于从不同目标（文件/MQ/数据存储）收集不同的格式数据，经过滤后支持输出到不同目的（文件/MQ/redis/es/kafka等）。
 - Kibana是将es的数据友好的展示出来，提供实时分析功能。
 
-## 下载安装Kibana
+## 3.1下载安装Kibana
 
 下载链接：[Kibana下载链接](https://www.elastic.co/cn/downloads/kibana)
 
@@ -107,7 +107,7 @@ ELK是Elasticsearch 、Logstash、Kibana三大开源框架的简称：
 
 ![image-20210404115938852](upload/image-20210404115938852.png)
 
-### 中文汉化配置：
+### 3.1.2中文汉化配置：
 
 KiBana默认是支持中文汉化的，该文件路径可以看到中文汉化文件：x-pack\plugins\translations\translations\zh_CN.json。
 
@@ -121,7 +121,7 @@ KiBana默认是支持中文汉化的，该文件路径可以看到中文汉化�
 
 # 4.了解ES
 
-## 核心介绍
+## 4.1核心介绍
 
 > elasticsearch是面向文档的。核心：索引、字段类型、文档
 
@@ -132,17 +132,17 @@ KiBana默认是支持中文汉化的，该文件路径可以看到中文汉化�
 | 行rows         | 文档documents                    |
 | 列columns      | 字段fields                       |
 
-## 架构设计
+## 4.2架构设计
 
-### 物理设计：
+### 4.2.1物理设计：
 
 es在后台把每个索引划分成多个分片，每个分片可以在集群中不同服务器进行迁移。
 
-### 逻辑设计：
+### 4.2.2逻辑设计：
 
 一个索引类型中，包含多个文档，在查找过程中，按照顺序查找：索引 > 类型 > 文档ID，这样就可以准确的定位到文档，文档ID是由字符串组成。
 
-## 倒排索引：
+## 4.3倒排索引：
 
 例如我们有两个文档如下：
 
@@ -189,7 +189,7 @@ Total   |   2   |  1
 
 # 5.IK分词器
 
-## 什么是分词?
+## 5.1什么是分词?
 
 把一段中文或者是英文分成一个个关键字，在搜索的时候就会把输入的内容进行分词，然后与索引库中进行匹配操作，如elasticsearch可以分成：elastic、search、elasticsearch三种情况。
 
@@ -206,7 +206,7 @@ Total   |   2   |  1
 
 ![image-20210404174448821](upload/image-20210404174448821.png)
 
-## Kibana测试IK分词
+## 5.2Kibana测试IK分词
 
 打开kibana左侧的“开发工具”：
 
@@ -323,7 +323,7 @@ GET _analyze
 - ik_smart：最少划分，从头到尾，不重复的划分。
 - ik_max_word：最小力度划分，最词穷划分，可能会重复划分某个词。
 
-### 自定义IK分词器
+### 5.2.1自定义IK分词器
 
 ==我们想将“一起学”划分在一块，这可怎么办？==
 
@@ -372,7 +372,7 @@ GET _analyze
 - 二进制类型：binary
 - 等等...
 
-### 1.创建索引
+### 6.1.1.创建索引
 
 发送创建索引请求，返回结果为created：
 
@@ -399,7 +399,7 @@ PUT /test1/type1/1
 
 ![image-20210404211334001](upload/image-20210404211334001.png)
 
-### 2.创建索引规则。
+### 6.1.2.创建索引规则。
 
 ```json
 PUT /test2
@@ -428,9 +428,9 @@ PUT /test2
 
 ![image-20210404214146275](upload/image-20210404214146275.png)
 
-### 3.通过GET请求获取索引信息。
+### 6.1.3.通过GET请求获取索引信息。
 
-### ![image-20210404214445987](upload/image-20210404214445987.png)4.创建索引不指定类型。
+### ![image-20210404214445987](upload/image-20210404214445987.png)6.1.4.创建索引不指定类型。
 
 若不指定类型，es会默认的帮我们设置类型：
 
@@ -449,7 +449,7 @@ GET test3
 
 ![image-20210404215016573](upload/image-20210404215016573.png)
 
-### 5.通过GET _cat命令查看es状况
+### 6.1.5.通过GET _cat命令查看es状况
 
 可以查看的信息有：开启状态、uuid、文档数量、已删除数量、大小等。
 
@@ -461,7 +461,7 @@ GET _cat/indices?v
 
 ![image-20210404215756180](upload/image-20210404215756180.png)
 
-### 6.修改索引信息
+### 6.1.6.修改索引信息
 
 方法一：通过插入覆盖方式进行修改
 
@@ -501,7 +501,7 @@ POST /test3/_doc/1/_update
 
 ![image-20210404221555192](upload/image-20210404221555192.png)
 
-### 7.删除索引
+### 6.1.7.删除索引
 
 ```json
 DELETE /test1
@@ -513,7 +513,7 @@ DELETE /test1
 
 ## 6.2文档操作
 
-### 1.创建文档
+### 6.2.1.创建文档
 
 ```json
 PUT /user/student/1
@@ -531,7 +531,7 @@ PUT /user/student/1
 
 ![image-20210404225547452](upload/image-20210404225547452.png)
 
-### 2.查看文档
+### 6.2.2.查看文档
 
 ```json
 GET /user/student/1
@@ -539,7 +539,7 @@ GET /user/student/1
 
 ![image-20210404225623487](upload/image-20210404225623487.png)
 
-### 3.更新数据
+### 6.2.3.更新数据
 
 - #### PUT方式更新
 
@@ -574,7 +574,7 @@ POST user/student/2/_update
 
 ![image-20210404230207235](upload/image-20210404230207235.png)
 
-### 4.模糊查询
+### 6.2.4.模糊查询
 
 ```json
 GET user/student/_search?q=name:李四
@@ -584,7 +584,7 @@ GET user/student/_search?q=name:李四
 
 ## 6.3复杂查询
 
-### 1.match查询
+### 6.3.1.match查询
 
 hit：查询到的对象，包含了索引、文档信息、总数和分值等，其中分值越大，越符合查询结果，也排在越靠前的位置。
 
@@ -601,7 +601,7 @@ GET user/student/_search
 
 ![image-20210415215020642](upload/image-20210415215020642.png)
 
-### 2._source只查询对应属性的信息
+### 6.3.2._source只查询对应属性的信息
 
 ```json
 GET user/student/_search
@@ -619,7 +619,7 @@ GET user/student/_search
 
 ![image-20210415215831010](upload/image-20210415215831010.png)
 
-### 3.sort排序查询
+### 6.3.3.sort排序查询
 
 根据age正序排序
 
@@ -641,7 +641,7 @@ GET user/student/_search
 
 ![image-20210415221525067](upload/image-20210415221525067.png)
 
-### 4.from、size分页查询
+### 6.3.4.from、size分页查询
 
 - from：起始页，从0开始
 
@@ -667,7 +667,7 @@ GET user/student/_search
 
 ![image-20210415221758574](upload/image-20210415221758574.png)
 
-### 5.bool多条件查询
+### 6.3.5.bool多条件查询
 
 #### （1）must（and）
 
@@ -738,7 +738,7 @@ GET user/student/_search
 }
 ```
 
-### 6.范围查询
+### 6.3.6.范围查询
 
 - gt（greater than）：大于
 - gte（greater than equal）：大于等于
@@ -773,9 +773,9 @@ GET user/student/_search
 
 ![image-20210415230847347](upload/image-20210415230847347.png)
 
-### 7.query多条件查询
+### 6.3.7.query多条件查询
 
-#### （1）模糊查询
+#### 1.模糊查询
 
 ```json
 GET user/student/_search
@@ -792,7 +792,7 @@ GET user/student/_search
 
 ![image-20210424201619023](upload/image-20210424201619023.png)
 
-#### （2）精确查询
+#### 2.精确查询
 
 > term查询是至二级通过倒排索引指定词条进行精确查询
 
@@ -888,7 +888,7 @@ GET test1/_search
 
 > 因为keyword类型的不会被分词器解析，需要完全匹配才能查询到
 
-#### （3）精确多条件查询
+#### 3.精确多条件查询
 
 ```json
 # 添加两条数据
@@ -928,7 +928,9 @@ GET test1/_search
 
 查询效果如下：
 
-### ![image-20210424232125218](upload/image-20210424232125218.png)8.高亮查询
+![image-20210424232125218](upload/image-20210424232125218.png)
+
+### 6.3.8.高亮查询
 
 ```json
 GET user/student/_search
@@ -971,3 +973,194 @@ GET user/student/_search
 ```
 
 ![image-20210424233223724](upload/image-20210424233223724.png)
+
+#### 总结：
+
+> 匹配、条件匹配、精确匹配、区间范围匹配、匹配字段过滤、多条件查询、高亮查询
+
+# 7.ES集成SpringBoot
+
+官网查看es的客户端：
+
+![image-20210504135439239](upload/image-20210504135439239.png)
+
+这里使用REST风格：
+
+![image-20210504135520386](upload/image-20210504135520386.png)
+
+查看es要的maven依赖：
+
+![image-20210504135845101](upload/image-20210504135845101.png)
+
+![image-20210504170610721](upload/image-20210504170610721.png)
+
+## 7.1创建SpringBoot项目
+
+### 7.1.1勾选需要的依赖：
+
+![image-20210504170839332](upload/image-20210504170839332.png)
+
+### 7.1.2将RestHighLevelClientBean注入：
+
+```java
+@Configuration
+public class ElasticSearchConfig {
+    
+    @Bean
+    public RestHighLevelClient restHighLevelClient() {
+        // 将RestHighLevelClient放入到spring中待使用
+        return new RestHighLevelClient(
+                RestClient.builder(
+                        new HttpHost("127.0.0.1", 9200, "http")
+                )
+        );
+    }
+}
+```
+
+## 7.2索引操作
+
+### 7.2.1创建索引
+
+创建索引：create -> PUT
+
+```java
+@Resource
+private RestHighLevelClient client;
+
+@Test
+void testCreateIndex() throws IOException {
+    // 创建索引请求
+    CreateIndexRequest request = new CreateIndexRequest("cnwanj_index");
+    // 客户端执行请求
+    CreateIndexResponse createIndexResponse = client.indices().create(request, RequestOptions.DEFAULT);
+    System.out.println(createIndexResponse);
+}
+```
+
+创建成功如下：
+
+![image-20210504202324168](upload/image-20210504202324168.png)
+
+### 7.2.1索引是否存在
+
+```java
+@Test
+void testExistIndex() throws IOException {
+    GetIndexRequest request = new GetIndexRequest("cnwanj_index");
+    boolean exists = client.indices().exists(request, RequestOptions.DEFAULT);
+    System.out.println(exists);
+}
+```
+
+若索引存在，输出：true
+
+### 7.2.1删除索引
+
+```java
+@Test
+void TestDeleteIndex() throws IOException {
+    DeleteIndexRequest request = new DeleteIndexRequest("cnwanj_index");
+    AcknowledgedResponse delete = client.indices().delete(request, RequestOptions.DEFAULT);
+    System.out.println(delete.isAcknowledged());
+}
+```
+
+删除成功后，输出：true
+
+## 7.3文档操作
+
+### 7.3.1创建文档
+
+> 注意在创建文档之前需要先创建索引，可以查看上面
+
+```java
+@Test
+void TestAddDocument() throws IOException {
+    // 创建对象
+    User user = new User("张三", 22);
+    // 创建请求
+    IndexRequest request = new IndexRequest("cnwanj_index");
+    request.id("1")
+        .timeout(TimeValue.timeValueSeconds(1))
+        .timeout("1s")
+        .source(JSON.toJSONString(user), XContentType.JSON);
+    // 客户端发起请求
+    IndexResponse indexResponse = client.index(request, RequestOptions.DEFAULT);
+
+    System.out.println(indexResponse.toString());
+    System.out.println(indexResponse.status());
+}
+```
+
+创建文档成功如下：
+
+![image-20210504214333580](upload/image-20210504214333580.png)
+
+### 7.3.2文档是否存在
+
+```java
+@Test
+void testExistDocument() throws IOException {
+    GetRequest request = new GetRequest("cnwnaj_index", "1");
+    // 不返回_source上下文
+    request.fetchSourceContext(new FetchSourceContext(false))
+        .storedFields("_none_");
+    boolean exists = client.exists(request, RequestOptions.DEFAULT);
+    System.out.println(exists);
+}
+```
+
+若文档存在，输出：true
+
+### 7.3.3获取文档信息
+
+```java
+@Test
+void testGetDocument() throws IOException {
+    GetRequest request = new GetRequest("cnwanj_index", "1");
+    GetResponse getResponse = client.get(request, RequestOptions.DEFAULT);
+    // 输出文档内容
+    System.out.println(getResponse.getSource());
+    // 输出文档全部内容
+    System.out.println(getResponse);
+}
+```
+
+输出结果如下：
+
+![image-20210504222313194](upload/image-20210504222313194.png)
+
+### 7.3.4更新文档信息
+
+```java
+@Test
+void testUpdateDocument() throws IOException {
+    UpdateRequest request = new UpdateRequest("cnwanj_index", "1");
+    // 设置超时时间
+    request.timeout("1s");
+    // 更新对象信息
+    User user = new User("张三学Java", 11);
+    request.doc(JSON.toJSONString(user), XContentType.JSON);
+    UpdateResponse update = client.update(request, RequestOptions.DEFAULT);
+    System.out.println(update.status());
+}
+```
+
+更新成功输出：OK
+
+![image-20210504224628035](upload/image-20210504224628035.png)
+
+7.3.5删除文档信息
+
+```java
+@Test
+void testDeleteDocument() throws IOException {
+    DeleteRequest request = new DeleteRequest("cnwanj_index", "1");
+    request.timeout("1s");
+    DeleteResponse delete = client.delete(request, RequestOptions.DEFAULT);
+    System.out.println(delete.status());
+}
+```
+
+删除成功输出：OK
