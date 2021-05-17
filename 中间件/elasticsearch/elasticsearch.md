@@ -1151,7 +1151,7 @@ void testUpdateDocument() throws IOException {
 
 ![image-20210504224628035](upload/image-20210504224628035.png)
 
-7.3.5删除文档信息
+### 7.3.5删除文档信息
 
 ```java
 @Test
@@ -1164,3 +1164,61 @@ void testDeleteDocument() throws IOException {
 ```
 
 删除成功输出：OK
+
+### 7.3.6批量新增文档
+
+```java
+@Test
+void testBulkDocument() throws IOException {
+    BulkRequest request = new BulkRequest();
+    request.timeout("10s");
+    List<User> userList = new ArrayList<>();
+    userList.add(new User("张三1", 1));
+    userList.add(new User("张三2", 2));
+    userList.add(new User("张三3", 3));
+    userList.add(new User("张三4", 4));
+    userList.add(new User("张三5", 5));
+    // 批量请求处理
+    for (int i = 0; i < userList.size(); i++) {
+        // 批量更新、删除就在这里修改对应的请求体
+        request.add(new IndexRequest("cnwanj_index")
+                    // id不添加表示默认为随机字符串
+                    .id(i + 1 + "")
+                    .source(JSON.toJSONString(userList.get(i)), XContentType.JSON));
+    }
+    BulkResponse response = client.bulk(request, RequestOptions.DEFAULT);
+    // 是否失败，返回false代表成功
+    System.out.println(response.hasFailures());
+}
+```
+
+批量新增成功输出：false
+
+![image-20210517205431553](upload/image-20210517205431553.png)
+
+### 7.3.7查询
+
+```java
+@Test
+void testSearch() throws Exception {
+    SearchRequest request = new SearchRequest("cnwanj_index");
+    // 构建搜索条件
+    SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
+    // 查询所有
+    // MatchAllQueryBuilder matchAllQueryBuilder = QueryBuilders.matchAllQuery();
+    // 精确查询
+    TermQueryBuilder termQueryBuilder = QueryBuilders.termQuery("name", "zs1");
+    sourceBuilder.query(termQueryBuilder).timeout(new TimeValue(60, TimeUnit.SECONDS));
+    // 将构建的条件设置到请求体中
+    request.source(sourceBuilder);
+    SearchResponse response = client.search(request, RequestOptions.DEFAULT);
+    System.out.println(JSON.toJSONString(response.getHits()));
+    for (SearchHit hit : response.getHits().getHits()) {
+        System.out.println(hit.getSourceAsMap());
+    }
+}
+```
+
+查询输出如下：
+
+![image-20210517214738475](upload/image-20210517214738475.png)
