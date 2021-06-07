@@ -582,4 +582,647 @@ GET user/student/_search?q=name:李四
 
 ![image-20210404230731939](upload/image-20210404230731939.png)
 
+<<<<<<< HEAD
 ## （3）复杂查询
+=======
+## 6.3复杂查询
+
+### 6.3.1.match查询
+
+hit：查询到的对象，包含了索引、文档信息、总数和分值等，其中分值越大，越符合查询结果，也排在越靠前的位置。
+
+```json
+GET user/student/_search
+{
+  "query": {
+    "match": {
+      "name": "张三"
+    }
+  }
+}
+```
+
+![image-20210415215020642](upload/image-20210415215020642.png)
+
+### 6.3.2._source只查询对应属性的信息
+
+```json
+GET user/student/_search
+{
+  "query": {
+    "match": {
+      "name": "张三"
+    }
+  },
+  "_source": ["name", "age"]
+}
+```
+
+如下图只查询了两个属性的信息。
+
+![image-20210415215831010](upload/image-20210415215831010.png)
+
+### 6.3.3.sort排序查询
+
+根据age正序排序
+
+```json
+GET user/student/_search
+{
+  "query": {
+    "match": {
+      "name": "张三"
+    }
+  },
+  "sort": [{
+    "age": {
+      "order": "asc"
+    }
+  }]  
+}
+```
+
+![image-20210415221525067](upload/image-20210415221525067.png)
+
+### 6.3.4.from、size分页查询
+
+- from：起始页，从0开始
+
+- size：单页面数据量
+
+```json
+GET user/student/_search
+{
+  "query": {
+    "match": {
+      "name": "张三"
+    }
+  },
+  "sort": [{
+    "age": {
+      "order": "asc"
+    }
+  }],
+  "from": "0",
+  "size": "1"  
+}
+```
+
+![image-20210415221758574](upload/image-20210415221758574.png)
+
+### 6.3.5.bool多条件查询
+
+#### （1）must（and）
+
+> must（and），所有条件都要符合查询 ... where id = 1 and name = 'zs'。
+
+```json
+GET user/student/_search
+{
+  "query": {
+    "bool": {
+      "must": [{
+        "match": {
+          "name": "张三"
+        }
+      }, {
+        "match": {
+          "age": "13"
+        }
+      }]
+    }
+  }
+}
+```
+
+![image-20210415222840661](upload/image-20210415222840661.png)
+
+#### （2）should（or）
+
+> should（or）：只要有一个条件符合 ... where id = 1 or name = 'zs'
+
+```json
+GET user/student/_search
+{
+  "query": {
+    "bool": {
+      "should": [{
+        "match": {
+          "name": "张三"
+        }
+      }, {
+        "match": {
+          "age": "13"
+        }
+      }]
+    }
+  }
+}
+```
+
+![image-20210415223258150](upload/image-20210415223258150.png)
+
+#### （3）must_not（not）
+
+将年龄不在13岁的全部查出来
+
+```json
+GET user/student/_search
+{
+  "query": {
+    "bool": {
+      "must_not": [{
+        "match": {
+          "age": "13"
+        }
+      }]
+    }
+  }
+}
+```
+
+### 6.3.6.范围查询
+
+- gt（greater than）：大于
+- gte（greater than equal）：大于等于
+- lt（less than）：小于
+- lte（less than equal）：小于等于
+
+查询 age > 15 的数据。
+
+```json
+GET user/student/_search
+{
+  "query": {
+    "bool": {
+      "must": [{
+        "match": {
+          "name": "张三"
+        }
+      }],
+      "filter": [
+        {
+          "range": {
+            "age": {
+              "gt": 15
+            }
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+![image-20210415230847347](upload/image-20210415230847347.png)
+
+### 6.3.7.query多条件查询
+
+#### 1.模糊查询
+
+```json
+GET user/student/_search
+{
+  "query": {
+    "match": {
+      "tags": "男 猪"
+    }
+  }
+}
+```
+
+通过空格可以进行多条件查询，通过分值可以看到，匹配度越高分值越高。
+
+![image-20210424201619023](upload/image-20210424201619023.png)
+
+#### 2.精确查询
+
+> term查询是至二级通过倒排索引指定词条进行精确查询
+
+- term：直接精确查询。
+- match：会使用分词器解析，先分析文档然后通过文档查询。
+
+term的查询效率比match要高。
+
+注意：text类型会被分词器解析，而keyword不会被分词器解析。
+
+**创建一个索引：**
+
+name字段类型为text，而desc类型为keyword
+
+```json
+PUT test1
+{
+  "mappings": {
+    "properties": {
+      "name": {
+        "type": "text"
+      },
+      "desc": {
+        "type": "keyword"
+      }
+    }
+  }
+}
+```
+
+**添加两条数据：**
+
+```json
+PUT test1/_doc/1
+{
+  "name": "张三 name",
+  "desc": "张三 desc"
+}
+
+PUT test1/_doc/2
+{
+  "name": "张三 name2",
+  "desc": "张三 desc2"
+}
+```
+
+**term查询text类型：**
+
+```json
+GET test1/_search
+{
+    "query": {
+        "term": {
+            "name": "张"
+        }
+    }
+}
+```
+
+因为text会被分词解析，所以相关的都会被查询到。
+
+![image-20210424230732701](upload/image-20210424230732701.png)
+
+
+
+**term查询keyword类型：**
+
+```json
+GET test1/_search
+{
+    "query": {
+        "term": {
+            "desc": "张"
+        }
+    }
+}
+```
+
+![image-20210424230750920](upload/image-20210424230750920.png)
+
+```json
+GET test1/_search
+{
+    "query": {
+        "term": {
+            "desc": "张三 desc"
+        }
+    }
+}
+```
+
+![image-20210424231033460](upload/image-20210424231033460.png)
+
+> 因为keyword类型的不会被分词器解析，需要完全匹配才能查询到
+
+#### 3.精确多条件查询
+
+```json
+# 添加两条数据
+PUT test1/_doc/3
+{
+  "t1": "11",
+  "t2": "2020"
+}
+
+PUT test1/_doc/4
+{
+  "t1": "22",
+  "t2": "2021"
+}
+
+# 进行多条件精确查询
+GET test1/_search
+{
+  "query": {
+    "bool": {
+      "should": [
+        {
+          "term": {
+            "t1": "11"
+          }
+        },
+        {
+          "term": {
+            "t1": "22"
+          }
+        }
+      ]
+    }
+  }
+}
+```
+
+查询效果如下：
+
+![image-20210424232125218](upload/image-20210424232125218.png)
+
+### 6.3.8.高亮查询
+
+```json
+GET user/student/_search
+{
+  "query": {
+    "match": {
+      "name": "张三"
+    }
+  },
+  "highlight": {
+    "fields": {
+      "name": {}
+    }
+  }
+}
+```
+
+
+
+![image-20210424232740746](upload/image-20210424232740746.png)
+
+**自定义高亮：**
+
+```json
+GET user/student/_search
+{
+  "query": {
+    "match": {
+      "name": "张三"
+    }
+  },
+  "highlight": {
+    "pre_tags": "<p class='name' style='color: red'>",
+    "post_tags": "</p>", 
+    "fields": {
+      "name": {}
+    }
+  }
+}
+```
+
+![image-20210424233223724](upload/image-20210424233223724.png)
+
+#### 总结：
+
+> 匹配、条件匹配、精确匹配、区间范围匹配、匹配字段过滤、多条件查询、高亮查询
+
+# 7.ES集成SpringBoot
+
+官网查看es的客户端：
+
+![image-20210504135439239](upload/image-20210504135439239.png)
+
+这里使用REST风格：
+
+![image-20210504135520386](upload/image-20210504135520386.png)
+
+查看es要的maven依赖：
+
+![image-20210504135845101](upload/image-20210504135845101.png)
+
+![image-20210504170610721](upload/image-20210504170610721.png)
+
+## 7.1创建SpringBoot项目
+
+### 7.1.1勾选需要的依赖：
+
+![image-20210504170839332](upload/image-20210504170839332.png)
+
+### 7.1.2将RestHighLevelClientBean注入：
+
+```java
+@Configuration
+public class ElasticSearchConfig {
+    
+    @Bean
+    public RestHighLevelClient restHighLevelClient() {
+        // 将RestHighLevelClient放入到spring中待使用
+        return new RestHighLevelClient(
+                RestClient.builder(
+                        new HttpHost("127.0.0.1", 9200, "http")
+                )
+        );
+    }
+}
+```
+
+## 7.2索引操作
+
+### 7.2.1创建索引
+
+创建索引：create -> PUT
+
+```java
+@Resource
+private RestHighLevelClient client;
+
+@Test
+void testCreateIndex() throws IOException {
+    // 创建索引请求
+    CreateIndexRequest request = new CreateIndexRequest("cnwanj_index");
+    // 客户端执行请求
+    CreateIndexResponse createIndexResponse = client.indices().create(request, RequestOptions.DEFAULT);
+    System.out.println(createIndexResponse);
+}
+```
+
+创建成功如下：
+
+![image-20210504202324168](upload/image-20210504202324168.png)
+
+### 7.2.1索引是否存在
+
+```java
+@Test
+void testExistIndex() throws IOException {
+    GetIndexRequest request = new GetIndexRequest("cnwanj_index");
+    boolean exists = client.indices().exists(request, RequestOptions.DEFAULT);
+    System.out.println(exists);
+}
+```
+
+若索引存在，输出：true
+
+### 7.2.1删除索引
+
+```java
+@Test
+void TestDeleteIndex() throws IOException {
+    DeleteIndexRequest request = new DeleteIndexRequest("cnwanj_index");
+    AcknowledgedResponse delete = client.indices().delete(request, RequestOptions.DEFAULT);
+    System.out.println(delete.isAcknowledged());
+}
+```
+
+删除成功后，输出：true
+
+## 7.3文档操作
+
+### 7.3.1创建文档
+
+> 注意在创建文档之前需要先创建索引，可以查看上面
+
+```java
+@Test
+void TestAddDocument() throws IOException {
+    // 创建对象
+    User user = new User("张三", 22);
+    // 创建请求
+    IndexRequest request = new IndexRequest("cnwanj_index");
+    request.id("1")
+        .timeout(TimeValue.timeValueSeconds(1))
+        .timeout("1s")
+        .source(JSON.toJSONString(user), XContentType.JSON);
+    // 客户端发起请求
+    IndexResponse indexResponse = client.index(request, RequestOptions.DEFAULT);
+
+    System.out.println(indexResponse.toString());
+    System.out.println(indexResponse.status());
+}
+```
+
+创建文档成功如下：
+
+![image-20210504214333580](upload/image-20210504214333580.png)
+
+### 7.3.2文档是否存在
+
+```java
+@Test
+void testExistDocument() throws IOException {
+    GetRequest request = new GetRequest("cnwnaj_index", "1");
+    // 不返回_source上下文
+    request.fetchSourceContext(new FetchSourceContext(false))
+        .storedFields("_none_");
+    boolean exists = client.exists(request, RequestOptions.DEFAULT);
+    System.out.println(exists);
+}
+```
+
+若文档存在，输出：true
+
+### 7.3.3获取文档信息
+
+```java
+@Test
+void testGetDocument() throws IOException {
+    GetRequest request = new GetRequest("cnwanj_index", "1");
+    GetResponse getResponse = client.get(request, RequestOptions.DEFAULT);
+    // 输出文档内容
+    System.out.println(getResponse.getSource());
+    // 输出文档全部内容
+    System.out.println(getResponse);
+}
+```
+
+输出结果如下：
+
+![image-20210504222313194](upload/image-20210504222313194.png)
+
+### 7.3.4更新文档信息
+
+```java
+@Test
+void testUpdateDocument() throws IOException {
+    UpdateRequest request = new UpdateRequest("cnwanj_index", "1");
+    // 设置超时时间
+    request.timeout("1s");
+    // 更新对象信息
+    User user = new User("张三学Java", 11);
+    request.doc(JSON.toJSONString(user), XContentType.JSON);
+    UpdateResponse update = client.update(request, RequestOptions.DEFAULT);
+    System.out.println(update.status());
+}
+```
+
+更新成功输出：OK
+
+![image-20210504224628035](upload/image-20210504224628035.png)
+
+### 7.3.5删除文档信息
+
+```java
+@Test
+void testDeleteDocument() throws IOException {
+    DeleteRequest request = new DeleteRequest("cnwanj_index", "1");
+    request.timeout("1s");
+    DeleteResponse delete = client.delete(request, RequestOptions.DEFAULT);
+    System.out.println(delete.status());
+}
+```
+
+删除成功输出：OK
+
+### 7.3.6批量新增文档
+
+```java
+@Test
+void testBulkDocument() throws IOException {
+    BulkRequest request = new BulkRequest();
+    request.timeout("10s");
+    List<User> userList = new ArrayList<>();
+    userList.add(new User("张三1", 1));
+    userList.add(new User("张三2", 2));
+    userList.add(new User("张三3", 3));
+    userList.add(new User("张三4", 4));
+    userList.add(new User("张三5", 5));
+    // 批量请求处理
+    for (int i = 0; i < userList.size(); i++) {
+        // 批量更新、删除就在这里修改对应的请求体
+        request.add(new IndexRequest("cnwanj_index")
+                    // id不添加表示默认为随机字符串
+                    .id(i + 1 + "")
+                    .source(JSON.toJSONString(userList.get(i)), XContentType.JSON));
+    }
+    BulkResponse response = client.bulk(request, RequestOptions.DEFAULT);
+    // 是否失败，返回false代表成功
+    System.out.println(response.hasFailures());
+}
+```
+
+批量新增成功输出：false
+
+![image-20210517205431553](upload/image-20210517205431553.png)
+
+### 7.3.7查询
+
+```java
+@Test
+void testSearch() throws Exception {
+    SearchRequest request = new SearchRequest("cnwanj_index");
+    // 构建搜索条件
+    SearchSourceBuilder sourceBuilder = new SearchSourceBuilder();
+    // 查询所有
+    // MatchAllQueryBuilder matchAllQueryBuilder = QueryBuilders.matchAllQuery();
+    // 精确查询
+    TermQueryBuilder termQueryBuilder = QueryBuilders.termQuery("name", "zs1");
+    sourceBuilder.query(termQueryBuilder).timeout(new TimeValue(60, TimeUnit.SECONDS));
+    // 将构建的条件设置到请求体中
+    request.source(sourceBuilder);
+    SearchResponse response = client.search(request, RequestOptions.DEFAULT);
+    System.out.println(JSON.toJSONString(response.getHits()));
+    for (SearchHit hit : response.getHits().getHits()) {
+        System.out.println(hit.getSourceAsMap());
+    }
+}
+```
+
+查询输出如下：
+
+![image-20210517214738475](upload/image-20210517214738475.png)
+>>>>>>> eb20d4247cd64322b25001a16d94c5e625b3cb55
