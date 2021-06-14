@@ -4,7 +4,7 @@
 
 Elasticsearch 是一个分布式、RESTful 风格的搜索和数据分析引擎，能够解决不断涌现出的各种用例。
 
-## ES和Solr有什么区别？
+## 1.1ES和Solr有什么区别？
 
 |            | ElasticSearch                        | Solr                                       |
 | ---------- | ------------------------------------ | ------------------------------------------ |
@@ -17,7 +17,7 @@ Elasticsearch 是一个分布式、RESTful 风格的搜索和数据分析引擎�
 
 # 2.安装elasticsearch、elasticsearch head
 
-## 安装elasticsearch
+## 2.1安装elasticsearch
 
 > 安装前需要环境支持：jdk1.8、nodejs
 
@@ -25,7 +25,7 @@ Elasticsearch 是一个分布式、RESTful 风格的搜索和数据分析引擎�
 
 ![image-20210328212037386](upload/image-20210328212037386.png)
 
-### 目录说明：
+### 2.1.2目录说明：
 
 ```
 -bin	启动文件
@@ -43,7 +43,7 @@ Elasticsearch 是一个分布式、RESTful 风格的搜索和数据分析引擎�
 
 ![image-20210404104802830](upload/image-20210404104802830.png)
 
-## 安装elasticsearch head
+## 2.2安装elasticsearch head
 
 > 简介：head是可视化工具，主要用于做数据展示，方便查看自己存储的数据，而对数据的查询一般使用Kibana。
 
@@ -64,7 +64,7 @@ npm run start
 localhost:9100
 ```
 
-### 解决跨域问题：
+### 2.2.1解决跨域问题：
 
 启动后发现存在跨域问题。
 
@@ -93,7 +93,7 @@ ELK是Elasticsearch 、Logstash、Kibana三大开源框架的简称：
 - Logstash：是ELK的中央数据引擎，用于从不同目标（文件/MQ/数据存储）收集不同的格式数据，经过滤后支持输出到不同目的（文件/MQ/redis/es/kafka等）。
 - Kibana是将es的数据友好的展示出来，提供实时分析功能。
 
-## 下载安装Kibana
+## 3.1下载安装Kibana
 
 下载链接：[Kibana下载链接](https://www.elastic.co/cn/downloads/kibana)
 
@@ -107,7 +107,7 @@ ELK是Elasticsearch 、Logstash、Kibana三大开源框架的简称：
 
 ![image-20210404115938852](upload/image-20210404115938852.png)
 
-### 中文汉化配置：
+### 3.1.2中文汉化配置：
 
 KiBana默认是支持中文汉化的，该文件路径可以看到中文汉化文件：x-pack\plugins\translations\translations\zh_CN.json。
 
@@ -121,7 +121,7 @@ KiBana默认是支持中文汉化的，该文件路径可以看到中文汉化�
 
 # 4.了解ES
 
-## 核心介绍
+## 4.1核心介绍
 
 > elasticsearch是面向文档的。核心：索引、字段类型、文档
 
@@ -132,17 +132,17 @@ KiBana默认是支持中文汉化的，该文件路径可以看到中文汉化�
 | 行rows         | 文档documents                    |
 | 列columns      | 字段fields                       |
 
-## 架构设计
+## 4.2架构设计
 
-### 物理设计：
+### 4.2.1物理设计：
 
 es在后台把每个索引划分成多个分片，每个分片可以在集群中不同服务器进行迁移。
 
-### 逻辑设计：
+### 4.2.2逻辑设计：
 
 一个索引类型中，包含多个文档，在查找过程中，按照顺序查找：索引 > 类型 > 文档ID，这样就可以准确的定位到文档，文档ID是由字符串组成。
 
-## 倒排索引：
+## 4.3倒排索引：
 
 例如我们有两个文档如下：
 
@@ -189,7 +189,7 @@ Total   |   2   |  1
 
 # 5.IK分词器
 
-## 什么是分词?
+## 5.1什么是分词?
 
 把一段中文或者是英文分成一个个关键字，在搜索的时候就会把输入的内容进行分词，然后与索引库中进行匹配操作，如elasticsearch可以分成：elastic、search、elasticsearch三种情况。
 
@@ -206,7 +206,7 @@ Total   |   2   |  1
 
 ![image-20210404174448821](upload/image-20210404174448821.png)
 
-## Kibana测试IK分词
+## 5.2Kibana测试IK分词
 
 打开kibana左侧的“开发工具”：
 
@@ -323,7 +323,7 @@ GET _analyze
 - ik_smart：最少划分，从头到尾，不重复的划分。
 - ik_max_word：最小力度划分，最词穷划分，可能会重复划分某个词。
 
-### 自定义IK分词器
+### 5.2.1自定义IK分词器
 
 ==我们想将“一起学”划分在一块，这可怎么办？==
 
@@ -359,7 +359,7 @@ GET _analyze
 | GET    | localhost:9200/索引名称/类型名称/文档id         | 通过id查询文档         |
 | POST   | localhost:9200/索引名称/类型名称/_search        | 查询所有文档           |
 
-## （1）操作索引
+## 6.1操作索引
 
 在Kibana的开发工具中进行索引操作
 
@@ -372,7 +372,7 @@ GET _analyze
 - 二进制类型：binary
 - 等等...
 
-### 1.创建索引
+### 6.1.1.创建索引
 
 发送创建索引请求，返回结果为created：
 
@@ -399,7 +399,7 @@ PUT /test1/type1/1
 
 ![image-20210404211334001](upload/image-20210404211334001.png)
 
-### 2.创建索引规则。
+### 6.1.2.创建索引规则。
 
 ```json
 PUT /test2
@@ -428,9 +428,9 @@ PUT /test2
 
 ![image-20210404214146275](upload/image-20210404214146275.png)
 
-### 3.通过GET请求获取索引信息。
+### 6.1.3.通过GET请求获取索引信息。
 
-### ![image-20210404214445987](upload/image-20210404214445987.png)4.创建索引不指定类型。
+### ![image-20210404214445987](upload/image-20210404214445987.png)6.1.4.创建索引不指定类型。
 
 若不指定类型，es会默认的帮我们设置类型：
 
@@ -449,7 +449,7 @@ GET test3
 
 ![image-20210404215016573](upload/image-20210404215016573.png)
 
-### 5.通过GET _cat命令查看es状况
+### 6.1.5.通过GET _cat命令查看es状况
 
 可以查看的信息有：开启状态、uuid、文档数量、已删除数量、大小等。
 
@@ -461,7 +461,7 @@ GET _cat/indices?v
 
 ![image-20210404215756180](upload/image-20210404215756180.png)
 
-### 6.修改索引信息
+### 6.1.6.修改索引信息
 
 方法一：通过插入覆盖方式进行修改
 
@@ -501,7 +501,7 @@ POST /test3/_doc/1/_update
 
 ![image-20210404221555192](upload/image-20210404221555192.png)
 
-### 7.删除索引
+### 6.1.7.删除索引
 
 ```json
 DELETE /test1
@@ -511,9 +511,9 @@ DELETE /test1
 
 ![image-20210404221809025](upload/image-20210404221809025.png)
 
-## （2）文档操作
+## 6.2文档操作
 
-### 1.创建文档
+### 6.2.1.创建文档
 
 ```json
 PUT /user/student/1
@@ -531,7 +531,7 @@ PUT /user/student/1
 
 ![image-20210404225547452](upload/image-20210404225547452.png)
 
-### 2.查看文档
+### 6.2.2.查看文档
 
 ```json
 GET /user/student/1
@@ -539,7 +539,7 @@ GET /user/student/1
 
 ![image-20210404225623487](upload/image-20210404225623487.png)
 
-### 3.更新数据
+### 6.2.3.更新数据
 
 - #### PUT方式更新
 
@@ -574,7 +574,7 @@ POST user/student/2/_update
 
 ![image-20210404230207235](upload/image-20210404230207235.png)
 
-### 4.模糊查询
+### 6.2.4.模糊查询
 
 ```json
 GET user/student/_search?q=name:李四
@@ -582,9 +582,6 @@ GET user/student/_search?q=name:李四
 
 ![image-20210404230731939](upload/image-20210404230731939.png)
 
-<<<<<<< HEAD
-## （3）复杂查询
-=======
 ## 6.3复杂查询
 
 ### 6.3.1.match查询
@@ -1225,4 +1222,170 @@ void testSearch() throws Exception {
 查询输出如下：
 
 ![image-20210517214738475](upload/image-20210517214738475.png)
->>>>>>> eb20d4247cd64322b25001a16d94c5e625b3cb55
+
+
+# 8.实战
+
+> 针对京东网页解析，并将解析到的数据放入ES中。
+
+## 8.1页面解析爬取
+
+### 8.1.1创建springboot项目，引入依赖
+
+```xml
+<!-- jsoup解析网页（不可以解析视频，tika可以） -->
+<dependency>
+    <groupId>org.jsoup</groupId>
+    <artifactId>jsoup</artifactId>
+    <version>1.13.1</version>
+</dependency>
+
+<dependency>
+    <groupId>com.alibaba</groupId>
+    <artifactId>fastjson</artifactId>
+    <version>1.2.62</version>
+</dependency>
+
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-data-elasticsearch</artifactId>
+</dependency>
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-thymeleaf</artifactId>
+</dependency>
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-starter-web</artifactId>
+</dependency>
+
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-devtools</artifactId>
+    <scope>runtime</scope>
+    <optional>true</optional>
+</dependency>
+<dependency>
+    <groupId>org.springframework.boot</groupId>
+    <artifactId>spring-boot-configuration-processor</artifactId>
+    <optional>true</optional>
+</dependency>
+<dependency>
+    <groupId>org.projectlombok</groupId>
+    <artifactId>lombok</artifactId>
+    <optional>true</optional>
+</dependency>
+```
+
+其中最主要的依赖是jsoup，主要用于解析网页页面数据，包括图片、html元素等，不可以解析视频，解析视频可以使用tika。
+
+### 8.1.2创建解析工具类
+
+创建JsoupUtil.java，代码如下：
+
+```java
+public class JsoupUtil {
+
+    public List<Content> parseJD(String keyword) throws Exception {
+        // 要解析的页面链接
+        String url = "https://search.jd.com/Search?keyword=" + keyword;
+        // 解析网页获取文档
+        Document document = Jsoup.parse(new URL(url), 3000);
+        // 获取标签元素
+        Element element = document.getElementById("J_goodsList");
+        Elements lis = element.getElementsByTag("li");
+        List<Content> list = new ArrayList<>();
+        for (Element li : lis) {
+            String title = li.getElementsByClass("p-name").eq(0).text();
+            String img = li.getElementsByTag("img").eq(0).attr("data-lazy-img");
+            String price = li.getElementsByClass("p-price").eq(0).text();
+            list.add(new Content(title, img, price));
+        }
+        return list;
+    }
+
+    public static void main(String[] args) throws Exception {
+        new JsoupUtil().parseJD("java").forEach(a -> {
+            System.out.println("================");
+            System.out.println(a.toString());
+        });
+    }
+}
+```
+
+其中Content实体类如下：
+
+```java
+@Data
+@AllArgsConstructor
+@NoArgsConstructor
+@ToString
+public class Content {
+
+    private String title;
+
+    private String img;
+
+    private String price;
+}
+```
+
+输出如下表示成功：
+
+![image-20210614231626347](upload/image-20210614231626347.png)
+
+### 8.1.3通过请求存储到ES中
+
+创建ContentService.java，代码如下：
+
+```java
+@Service
+public class ContentService {
+
+    @Resource
+    private RestHighLevelClient restHighLevelClient;
+
+    public Boolean parseContent(String keyword) throws Exception {
+        // 获取解析数据
+        List<Content> contentList = new JsoupUtil().parseJD(keyword);
+        // 创建请求对象
+        BulkRequest bulkRequest = new BulkRequest();
+        bulkRequest.timeout("2m");
+        // 将数据放入ES的请求对象中
+        for (Content content : contentList) {
+            bulkRequest.add(new IndexRequest("jd_goods").source(JSON.toJSONString(content), XContentType.JSON));
+        }
+        // 请求ES并存储数据
+        BulkResponse bulk = restHighLevelClient.bulk(bulkRequest, RequestOptions.DEFAULT);
+        return !bulk.hasFailures();
+    }
+}
+```
+
+创建ContentController.java，代码如下：
+
+```java
+@RestController
+public class ContentController {
+
+    @Resource
+    private ContentService contentService;
+
+    @RequestMapping("/{keyword}")
+    public Boolean parseContent(@PathVariable String keyword) throws Exception {
+        return contentService.parseContent(keyword);
+    }
+}
+```
+
+发送请求成功如下：
+
+![image-20210614232305865](upload/image-20210614232305865.png)
+
+获取到的数据如下：
+
+![image-20210614232644891](upload/image-20210614232644891.png)
+
+## 8.2前后端分离
+
+## 8.3搜索高亮
