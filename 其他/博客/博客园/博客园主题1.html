@@ -1,0 +1,254 @@
+# 页面定制 CSS 代码
+#loading{bottom:0;left:0;position:fixed;right:0;top:0;z-index:9999;background-color:#f4f5f5;pointer-events:none;}.loader-inner{will-change:transform;width:40px;height:40px;position:absolute;top:50%;left:50%;margin:-20px 0 0 -20px;background-color:#3742fa;border-radius:50%;animation:scaleout 0.6s infinite ease-in-out forwards;text-indent:-99999px;z-index:999991;}@keyframes scaleout{0%{transform:scale(0);opacity:0;}40%{opacity:1;}100%{transform:scale(1);opacity:0;}}
+
+# 页首 HTML 代码 
+<div id="loading"><div class="loader-inner"></div></div>
+
+# 页脚 HTML 代码 
+<script src="https://guangzan.gitee.io/awescnb/index.js"></script>
+<script>
+  const opts = {
+	theme: {
+		name: 'reacg',
+		avatar: 'https://pic.cnblogs.com/avatar/1916462/20210227100636.png',
+		color: "#afb4db"
+	},
+        github: {
+		enable: true,
+		color: '#ffb3cc',
+		url: 'https://github.com/cnwanj',
+	},
+        // 个性签名
+	signature: {
+		enable: true,
+		contents: [
+		"一生经历一次青春，<b style='color:#ff6b81'>目的只是听一次花开的声音</b>，<b>看一次花落的寂然。</b>",
+		"<b>console.log(🍺);</b>",
+		],
+	},
+	darkMode: {
+		enable: true,
+		autoDark: false,
+		autoLight: false
+	},
+	live2d: {
+		enable: true,
+		page: 'all',
+		agent: 'pc',
+		model: 'haru-02',
+		width: 150,
+		height: 200,
+		position: 'left',
+		gap: 'default',
+	},
+	imagebox: {
+		enable: true,
+	},
+	bodyBackground: {
+		enable: true,
+		value: 'https://guangzan.gitee.io/imagehost/awescnb/images/anime/21.jpg',
+		opacity: 0.85,
+		repeat: false,
+	},
+	gitee: {
+		enable: true,
+		color: '#C71D23',
+		url: 'https://gitee.com/cnwanj',
+	},
+	lineNumbers: {
+		enable: true,
+	},
+	highLight: {
+		dark: 'atomOneDark',
+		light: 'atomOneLight',
+	},
+	topProgress: {
+		enable: true,
+		page: 'all',
+		agent: 'pc',
+		background: '#FFB3CC',
+		height: '2px',
+	},
+	lock: {
+		enable: true,
+		background: '',
+		strings: [
+			'<i>Powered by</i> webpack.',
+			'&amp; Theme in awescnb',
+			'public static void main(String[] args) {}',
+		],
+	},
+	notice:{
+		enable:true,
+		text:['🔯双击导航条锁屏','🙃快去试试吧'],
+	},
+	links: [
+		{
+			name: '菜鸟玩Java的CSDN',
+			link: 'https://blog.csdn.net/Yh_yh_new_Yh',
+		},
+	],
+	click: {
+		enable: true,
+		auto: false,
+		colors: ['#FF1461', '#18FF92', '#5A87FF', '#FBF38C'],
+		size: 20,
+		maxCount: 40,
+	},
+        emoji: {
+		enable: true,
+		buttonIcon: "🥳",
+		emojiList: [
+			{
+			  value: 'https://images.cnblogs.com/cnblogs_com/gshang/1626876/o_2001050555139.png',
+			  label: '',
+			},
+			{
+				value: '🤣',
+				label: '笑哭',
+			},
+			{
+				value: '😃',
+				label: '大笑',
+			},
+			{
+				value: '😅',
+				label: '苦笑',
+			},
+			{
+				value: '😆',
+				label: '斜眼笑',
+			},
+			{
+				value: '😏',
+				label: '得意',
+			},
+			{
+				value: '😊',
+				label: '微笑',
+			},
+			{
+				value: '😎',
+				label: '酷！',
+			},
+			{
+				value: '😍',
+				label: '花痴',
+			},
+			{
+				value: '🙂',
+				label: '呵呵',
+			},
+			{
+				value: '🤩',
+				label: '好崇拜哦',
+			},
+			{
+				value: '🤔',
+				label: '思考',
+			},
+			{
+				value: '🙄',
+				label: '白眼',
+			},
+			{
+				value: '😜',
+				label: '略略略',
+			},
+			{
+				value: '😲',
+				label: '呆住',
+			},
+			{
+				value: '😭',
+				label: '大哭',
+			},
+			{
+				value: '🤯',
+				label: '头炸了',
+			},
+			{
+				value: '😰',
+				label: '冷汗',
+			},
+			{
+				value: '😱',
+				label: '吓死了',
+			},
+			{
+				value: '🤪',
+				label: '略略略',
+			},
+			{
+				value: '😵',
+				label: '晕',
+			},
+			{
+				value: '😡',
+				label: '愤怒',
+			},
+			{
+				value: '🥳',
+				label: '祝贺',
+			},
+			{
+				value: '🤡',
+				label: '小丑竟是我',
+			},
+			{
+				value: '🤫',
+				label: '嘘~',
+			},
+			{
+				value: '🐒',
+				label: '猴',
+			},
+			{
+				value: '🤭',
+				label: '笑笑不说话',
+			},
+			{
+				value: '🐂',
+				label: '牛',
+			},
+			{
+				value: '🍺',
+				label: '啤酒',
+			},
+			{
+				value: '(=・ω・=)',
+				label: '',
+			},
+			{
+			    value: '(｀・ω・´)',
+			    label: '',
+			},
+			{
+			    value: '(°∀°)ﾉ',
+			    label: '',
+			},
+			{
+			    value: '←_←',
+			    label: '',
+			},
+			{
+			    value: '→_→',
+			    label: '',
+			},
+			{
+			    value: 'Σ(ﾟдﾟ;)',
+			    label: '',
+			},
+			{
+				value: '(｡･ω･｡)',
+				label: '',
+			},
+			{
+			    value: '(-_-#)',
+			    label: '',
+			},
+		]
+	},
+  }
+  $.awesCnb(opts)
+</script>
