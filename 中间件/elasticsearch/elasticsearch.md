@@ -1388,4 +1388,151 @@ public class ContentController {
 
 ## 8.2前后端分离
 
+### 8.2.1引入vue
+
+npm init
+
+npm install vue
+
+npm install axios
+
 ## 8.3搜索高亮
+
+### 8.3.1后端高亮代码部分
+
+在ContentService添加高亮搜索代码如下：
+
+```java
+public List<Map<String, Object>> searchContentHighlight(String keyword, int pageNum, int pageSize) throws Exception {
+    // 条件搜索
+    SearchRequest searchRequest = new SearchRequest("jd_goods");
+    SearchSourceBuilder searchSourceBuilder = new SearchSourceBuilder();
+    // 分页查询
+    searchSourceBuilder.from(pageNum).size(pageSize)
+        // 精确匹配
+        .query(QueryBuilders.termQuery("title", keyword))
+        .timeout(new TimeValue(60, TimeUnit.SECONDS));
+
+    // 设置高亮
+    HighlightBuilder highlightBuilder = new HighlightBuilder();
+    highlightBuilder.field("title")
+        .preTags("<span style='color:red'>")
+        .postTags("</span>");
+    searchSourceBuilder.highlighter(highlightBuilder);
+    searchRequest.source(searchSourceBuilder);
+
+    // 执行搜索
+    SearchResponse search = restHighLevelClient.search(searchRequest, RequestOptions.DEFAULT);
+    List<Map<String, Object>> results = new ArrayList<>();
+    for (SearchHit hit : search.getHits().getHits()) {
+        // 获取高亮结果
+        Map<String, HighlightField> highlightFields = hit.getHighlightFields();
+        // 获取高亮字段
+        HighlightField titleField = highlightFields.get("title");
+        // 原来的结果
+        Map<String, Object> sourceAsMap = hit.getSourceAsMap();
+        if (titleField != null) {
+            // 获取高亮字段的碎片
+            Text[] fragments = titleField.getFragments();
+            StringBuilder str = new StringBuilder();
+            for (Text text : fragments) {
+                str.append(text);
+            }
+            // 将高亮部分替换原来结果
+            sourceAsMap.put("title", str.toString());
+        }
+        results.add(sourceAsMap);
+    }
+    return results;
+}
+```
+
+在ContentController方法进行调用如下：
+
+```java
+@RequestMapping(method = {RequestMethod.GET}, path = "searchContentHighlight/{keyword}/{pageNum}/{pageSize}")
+public List<Map<String, Object>> searchContentHighlight(@PathVariable String keyword, @PathVariable int pageNum, @PathVariable int pageSize) throws Exception {
+    return contentService.searchContentHighlight(keyword, pageNum, pageSize);
+}
+```
+
+### 8.3.2前端Vue核心代码
+
+```vue
+<div class="page" id="app">
+	<!-- 搜索 -->
+    <form name="searchTop" class="mallSearch-form clearfix">
+        <fieldset>
+            <legend>天猫搜索</legend>
+            <div class="mallSearch-input clearfix">
+                <div class="s-combobox" id="s-combobox-685">
+                    <div class="s-combobox-input-wrap">
+                        <input v-model="keyword" type="text" autocomplete="off" value="dd" id="mq"
+                               class="s-combobox-input" aria-haspopup="true">
+                    </div>
+                </div>
+                <button @click.prevent="searchContent" type="submit" id="searchbtn">搜索</button>
+            </div>
+        </fieldset>
+    </form>
+    
+    <!-- 商品详情 -->
+    <div class="view grid-nosku">
+        <div class="product" v-for="result in results">
+            <div class="product-iWrap">
+                <!--商品封面-->
+                <div class="productImg-wrap">
+                    <a class="productImg">
+                        <img :src="result.img">
+                    </a>
+                </div>
+                <!--价格-->
+                <p class="productPrice">
+                    <em>{{result.price}}</em>
+                </p>
+                <!--标题-->
+                <p class="productTitle">
+                    <!-- 高亮 -->
+                    <a v-html="result.title"></a>
+                </p>
+                <!-- 店铺名 -->
+                <div class="productShop">
+                    <span>店铺： Java </span>
+                </div>
+                <!-- 成交信息 -->
+                <p class="productStatus">
+                    <span>月成交<em>999笔</em></span>
+                    <span>评价 <a>3</a></span>
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+    new Vue({
+        el: '#app',
+        data: {
+            keyword: '',
+            results: []
+        },
+        methods: {
+            searchContent() {
+                let keyword = this.keyword;
+                console.log(keyword);
+                axios.get('searchContentHighlight/' + keyword + '/1/10').then(res => {
+                    console.log(res.data);
+                    this.results = res.data;
+                })
+            }
+        }
+    })
+</script>
+```
+
+访问http://localhost:9090/，在搜索框输入"java"，最终效果如下：
+
+![image-20210621213644822](upload/image-20210621213644822.png)
+
+完成代码git链接：
+
+[https://github.com/cnwanj/to-study.git](https://github.com/cnwanj/to-study.git)
