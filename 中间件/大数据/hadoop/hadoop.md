@@ -59,7 +59,7 @@
 
 > NameNode：目录；DataNode：目录对应的内容
 
-![image-20210818232613661](upload/image-20210818232613661.png)
+![image-20210823205741176](upload/image-20210823205741176.png)
 
 ### 5.2Yarn架构
 
@@ -70,7 +70,7 @@
 - Container：容器，提供独立的服务，封装了任务所需的资源（内存、CPU、磁盘、网络等）。
 - ApplicationMaster（AM）：单个任务运行的管理者，运行在容器中。
 
-![image-20210818232659312](upload/image-20210818232659312.png)
+![image-20210818234046682](upload/image-20210818234046682.png)
 
 > - 客户端可以有多个。
 > - 每个NodeManager有多个Container。
@@ -84,3 +84,126 @@ MapReduce分为Map和Reduce两个阶段
 - Reduce阶段对Map结果进行汇总。
 
 ![image-20210818231618091](upload/image-20210818231618091.png)
+
+### 5.4HDFS、Yarn、MapReduce之间的关系
+
+![image-20210823210841865](upload/image-20210823210841865.png)
+
+### 5.5大数据的生态体系
+
+![image-20210823212307215](upload/image-20210823212307215.png)
+
+- 业务模型层：业务模型、数据可视化、业务应用。
+- 任务调度层：
+  - Oozie任务调度。
+  - Azkaban任务调度。
+- 数据计算层：
+  - MapReduce离线计算（Hive数据查询）。
+  - Spark Core内存计算（Spark Mlib数据挖掘、Spark Sql数据查询、Spark Streaming实时计算）。
+  - flink。
+  - Storm实时计算。
+- 资源管理层：Yarn资源调度管理。
+- 数据存储层：
+  - HDFS文件存储。
+  - HBase非关系数据库。
+  - Kafka消息队列。
+- 数据传输层：
+  - Sqoop数据传递。
+  - Flume日志收集。
+  - Kafka消息队列。
+- 数据来源层：
+  - 数据库（结构化数据）。
+  - 文件日志（半结构化数据）。
+  - 视频和ppt等（非结构化数据）。
+
+# 二、Linux CentOS7环境准备
+
+## 1.CentOS7连接外部网络
+
+> 准备：在VMWare中安装上CentOS7
+
+### 1.1VMWare配置
+
+（1）选择“虚拟网络编辑器”
+
+![image-20210901225107805](upload/image-20210901225107805.png)
+
+（2）选择“VMnet8”，点击“更改设置”
+
+![image-20210901225332637](upload/image-20210901225332637.png)
+
+（3）输入子网IP：192.168.10.2，子网掩码：255.255.255.0
+
+![image-20210901225629677](upload/image-20210901225629677.png)
+
+（4）点击“NAT设置”
+
+![image-20210901225724852](upload/image-20210901225724852.png)
+
+（5）输入网关IP：192.168.10.2，点击确定，这样就完成了VMWare的配置了。
+
+![image-20210901225858416](upload/image-20210901225858416.png)
+
+### 1.2Win10的配置
+
+（1）选择VMnet8，鼠标右键，选择属性
+
+![image-20210901230025989](upload/image-20210901230025989.png)
+
+![image-20210901230135739](upload/image-20210901230135739.png)
+
+（2）配置如下，配置完成点击确定
+
+IP地址：192.168.10.1
+
+子网掩码：255.2525.255.0
+
+默认网关：192.168.10.2
+
+DNS(P)：192.168.10.2
+
+DNS(A)：8.8.8.8
+
+![image-20210901230219480](upload/image-20210901230219480.png)
+
+### 1.3CentOS7配置
+
+（1）进入root模式，输入密码
+
+```shell
+su root
+```
+
+（2）编辑配置文件（注意，一定要进入root模式，否则打开空白）
+
+```shell
+vim /etc/sysconfig/network-scripts/ifcfg-ens32
+```
+
+（3）编辑配置内容
+
+```shell
+# 修改BOOTPROTO为static，IP地址为静态模式
+BOOTPROTO=static
+
+# 加入以下地址
+IPADDR=192.168.1.5		# IP地址，ifconfig命令查看
+NETMASK=255.255.255.0	# 子网掩码
+GATEWAY=192.168.10.2	# 网关
+DNS1=192.168.10.2		# 域名解析器
+```
+
+![image-20210901231141205](upload/image-20210901231141205.png)
+
+（4）重启后，验证网络
+
+```shell
+# 重启
+reboot
+# 验证网络
+ping www.baidu.com
+```
+
+![image-20210901231342178](upload/image-20210901231342178.png)
+
+这样网络就配置成功了！
