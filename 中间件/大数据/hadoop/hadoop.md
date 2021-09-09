@@ -132,17 +132,17 @@ MapReduce分为Map和Reduce两个阶段
 
 ![image-20210901225332637](upload/image-20210901225332637.png)
 
-（3）输入子网IP：192.168.10.2，子网掩码：255.255.255.0
+（3）输入子网IP：192.168.1.2，子网掩码：255.255.255.0
 
-![image-20210901225629677](upload/image-20210901225629677.png)
+![image-20210909222329757](upload/image-20210909222329757.png)
 
 （4）点击“NAT设置”
 
-![image-20210901225724852](upload/image-20210901225724852.png)
+![image-20210909222411417](upload/image-20210909222411417.png)
 
-（5）输入网关IP：192.168.10.2，点击确定，这样就完成了VMWare的配置了。
+（5）输入网关IP：192.168.1.2，点击确定，这样就完成了VMWare的配置了。
 
-![image-20210901225858416](upload/image-20210901225858416.png)
+![image-20210909222434617](upload/image-20210909222434617.png)
 
 ### 1.2Win10的配置
 
@@ -154,17 +154,17 @@ MapReduce分为Map和Reduce两个阶段
 
 （2）配置如下，配置完成点击确定
 
-IP地址：192.168.10.1
+IP地址：192.168.1.1
 
 子网掩码：255.2525.255.0
 
-默认网关：192.168.10.2
+默认网关：192.168.1.2
 
-DNS(P)：192.168.10.2
+DNS(P)：192.168.1.2
 
 DNS(A)：8.8.8.8
 
-![image-20210901230219480](upload/image-20210901230219480.png)
+![image-20210909222528880](upload/image-20210909222528880.png)
 
 ### 1.3CentOS7配置
 
@@ -174,13 +174,13 @@ DNS(A)：8.8.8.8
 su root
 ```
 
-（2）编辑配置文件（注意，一定要进入root模式，否则打开空白）
+（2）修改配置文件（注意，一定要进入root模式，否则打开空白）
 
 ```shell
 vim /etc/sysconfig/network-scripts/ifcfg-ens32
 ```
 
-（3）编辑配置内容
+（3）修改配置内容
 
 ```shell
 # 修改BOOTPROTO为static，IP地址为静态模式
@@ -189,11 +189,11 @@ BOOTPROTO=static
 # 加入以下地址
 IPADDR=192.168.1.5		# IP地址，ifconfig命令查看
 NETMASK=255.255.255.0	# 子网掩码
-GATEWAY=192.168.10.2	# 网关
-DNS1=192.168.10.2		# 域名解析器
+GATEWAY=192.168.1.2		# 网关
+DNS1=192.168.1.2		# 域名解析器
 ```
 
-![image-20210901231141205](upload/image-20210901231141205.png)
+![image-20210909222813273](upload/image-20210909222813273.png)
 
 （4）重启后，验证网络
 
@@ -207,3 +207,82 @@ ping www.baidu.com
 ![image-20210901231342178](upload/image-20210901231342178.png)
 
 这样网络就配置成功了！
+
+### 1.4XShell连接
+
+> 注意：设置的IP地址（IPADDR）第三位要与网关（GATWAY）一致，如我这里的第三位都是“1”。
+>
+> IPADDR=192.168.1.5
+> GATEWAY=192.168.1.2
+>
+> 否则xshell不能通过ip地址连接上主机CentOS
+
+![image-20210909223437022](upload/image-20210909223437022.png)
+
+连接上输入用户名和密码就可以连接成功了。
+
+## 2.hosts文件映射
+
+- 进入win10路径：C:\Windows\System32\drivers\etc
+- 打开hosts文件
+- 将下面映射复制到hosts文件中
+
+```
+192.168.1.5 hadoop5
+192.168.1.6 hadoop6
+192.168.1.7 hadoop7
+192.168.1.8 hadoop8
+192.168.1.9 hadoop9
+192.168.1.10 hadoop10
+192.168.1.11 hadoop11
+192.168.1.12 hadoop12
+```
+
+# 三、Hadoop运行模式
+
+## 3.1本地运行模式
+
+### 3.1.1安装epel-release软件包
+
+相当于一个软件仓库、大多数rpm包在官方的repository是找不到的。
+
+```shell
+yum install -y epel-release
+```
+
+安装成功如下：
+
+![image-20210909225707142](upload/image-20210909225707142.png)
+
+### 3.1.2关闭防火墙
+
+```shell
+# 关闭防火墙
+systemctl stop firewalld
+
+# 关闭开机自启
+systemctl disable firewalld.service
+```
+
+注意切换到root权限。
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
