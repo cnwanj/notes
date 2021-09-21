@@ -177,7 +177,7 @@ su root
 （2）修改配置文件（注意，一定要进入root模式，否则打开空白）
 
 ```shell
-vim /etc/sysconfig/network-scripts/ifcfg-ens32
+vim /etc/sysconfig/network-script/ifcfg-ens32
 ```
 
 （3）修改配置内容
@@ -242,7 +242,9 @@ ping www.baidu.com
 
 ## 3.1本地运行模式
 
-### 3.1.1安装epel-release软件包
+### 3.1.1准备本地环境
+
+（1）安装epel-release软件包
 
 相当于一个软件仓库、大多数rpm包在官方的repository是找不到的。
 
@@ -254,7 +256,7 @@ yum install -y epel-release
 
 ![image-20210909225707142](upload/image-20210909225707142.png)
 
-### 3.1.2关闭防火墙
+（2）关闭防火墙
 
 ```shell
 # 关闭防火墙
@@ -264,25 +266,133 @@ systemctl stop firewalld
 systemctl disable firewalld.service
 ```
 
-注意切换到root权限。
+> 注意切换到root权限。
+
+（3）创建用户，并修改用户密码
+
+```shell
+useradd weiyh
+passwd 123456
+```
+
+（4）给用户加上root权限，方便后期用sudo执行root命令
+
+```shell
+# 编辑配置文件
+vim /etc/sudoers
+
+# 在文件的%wheel后面加上，NOPASSWD: 表示免密码执行
+weiyh ALL=(ALL) NOPASSWD:ALL
+```
+
+![image-20210915221450216](upload/image-20210915221450216.png)
+
+（5）在opt创建文件，并修改所属用户和组
+
+```shell
+# 创建文件夹
+mkdir tools
+mkdir software
+
+# 修改改所属用户和组
+sudo chown weiyh:weiyh tools/ software/
+
+# 查看tools所属用户和组
+drwxr-xr-x. 2 root  root  41 4月  18 2020 tomcat
+drwxr-xr-x. 2 weiyh weiyh  6 9月  15 22:18 tools
+```
+
+（6）卸载自带的jdk
+
+```shell
+rpm -qa | grep -i java | xargs -n1 rpm -e --nodeps
+# rpm -qa: 查询安装的所有rpm软件包
+# grep -i: 忽略大小写
+# xargs -n1: 每次只传递一个参数
+# rpm -e --nodeps: 强制卸载软件
+```
+
+> 注意切换到root权限。
+
+### 3.1.2克隆虚拟机
+
+（1）将已创建的虚拟机克隆出三个hadoop102、hadoop103、hadoop104。
+
+![image-20210921141719322](upload/image-20210921141719322.png)
+
+其他的默认选择，下面选择第二个：
+
+![image-20210921141810227](upload/image-20210921141810227.png)
+
+最后选择克隆的目录。
+
+（2）重复按照以上操作克隆出3个虚拟机，并修改对应的IP和名称如下：
+
+```shell
+vim /etc/sysconfig/network-scripts/ifcfg-ens32
+```
 
 
 
+![image-20210921144942435](upload/image-20210921144942435.png)
+
+```shell
+vim /etc/hoatname
+```
 
 
 
+![image-20210921145027026](upload/image-20210921145027026.png)
 
+修改完成后进行重启，IP地址修改成功如下：
 
+![image-20210921145222336](upload/image-20210921145222336.png)
 
+### 3.1.3安装jdk
 
+```shell
+# 解压jdk到install文件下
+tar -zxvf jdk-8u241-linux-x64.tar.gz -C ../install
 
+# 编辑文件，配置jdk
+sudo vim /etc/profile.d/my_env.sh
 
+# 添加内容如下
+export JAVA_HOME=/opt/install/jdk1.8.0_241
+export PATH=$PATH:$JAVA_HOME/bin
 
+# 刷新配置文件
+source /etc/profile
+```
 
+![image-20210921224932191](upload/image-20210921224932191.png)
 
+![image-20210921224900782](upload/image-20210921224900782.png)
 
+> 为什么刷新profile文件就可以了？
+>
+> 因为profile文件会去循环遍历读取profile.d目录下的*.sh文件，如下：
 
+![image-20210921225204953](upload/image-20210921225204953.png)
 
+### 3.1.4安装hadoop
 
+> hadoop的安装配置和jdk差不多
 
+```shell
+# 解压hadoop到install安装目录下
+sudo tar -zxvf hadoop-3.1.3.tar.gz -C ../install/
+
+# 配置/etc/profile.d/my_env.sh文件
+export HADOOP_HOME=/opt/install/hadoop-3.1.3
+export PATH=$PATH:$HADOOP_HOME/bin
+export PATH=$PATH:$HADOOP_HOME/sbin
+
+# 刷新profile文件
+source /etc/profile
+```
+
+配置成功如下：
+
+![image-20210921230215969](upload/image-20210921230215969.png)
 
