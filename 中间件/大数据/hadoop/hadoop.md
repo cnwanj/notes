@@ -238,11 +238,9 @@ ping www.baidu.com
 192.168.1.12 hadoop12
 ```
 
-# 三、Hadoop运行模式
+## 3.本地环境
 
-## 3.1本地运行模式
-
-### 3.1.1准备本地环境
+### 3.1准备本地环境
 
 （1）安装epel-release软件包
 
@@ -295,7 +293,7 @@ mkdir tools
 mkdir software
 
 # 修改改所属用户和组
-sudo chown weiyh:weiyh tools/ software/
+sudo chown weiyh:weiyh tools/ install/
 
 # 查看tools所属用户和组
 drwxr-xr-x. 2 root  root  41 4月  18 2020 tomcat
@@ -314,7 +312,7 @@ rpm -qa | grep -i java | xargs -n1 rpm -e --nodeps
 
 > 注意切换到root权限。
 
-### 3.1.2克隆虚拟机
+### 3.1克隆虚拟机
 
 （1）将已创建的虚拟机克隆出三个hadoop102、hadoop103、hadoop104。
 
@@ -348,7 +346,7 @@ vim /etc/hoatname
 
 ![image-20210921145222336](upload/image-20210921145222336.png)
 
-### 3.1.3安装jdk
+### 3.1安装jdk
 
 ```shell
 # 解压jdk到install文件下
@@ -375,7 +373,7 @@ source /etc/profile
 
 ![image-20210921225204953](upload/image-20210921225204953.png)
 
-### 3.1.4安装hadoop
+### 3.1安装hadoop
 
 > hadoop的安装配置和jdk差不多
 
@@ -395,4 +393,150 @@ source /etc/profile
 配置成功如下：
 
 ![image-20210921230215969](upload/image-20210921230215969.png)
+
+# 三、运行模式
+
+## 1.三种运行模式
+
+- Local（Standalone）Mode：本地模式，单机运行，数据存储在linux本地。
+- Pseudo-Distributed Mode：伪分布式，单机运行，具备Hadoop的多有功能，数据存储在HDFS。
+- Fully-Distribute Mode：完全分布式，数据存储在HDFS，并且多台服务器工作。
+
+## 2.本地运行模式
+
+### 2.1统计词数
+
+```shell
+# 进入hadoop安装目录下新建文件
+mkdir wcinput
+
+# 在wcinput文件夹中新建文本
+vim word.txt
+# 内容如下：
+zs zs
+ls ls
+banzhang
+fanfan
+yangge
+
+# 回到hadoop目录下，统计词数到wcoutput文件中
+bin/hadoop jar share/hadoop/mapreduce/hadoop-mapreduce-examples-3.1.3.jar wordcount wcinput/ ./wcoutput
+	-- 通过hadoop命令运行jar包hadoop-mapreduce-examples-3.1.3.jar
+	-- 统计wcinput中的词数到wcoutput中
+	-- 注意：若输出文件wcoutput存在，会报错
+	
+# 查看wcoutput中的文件
+cat wcoutput/part-r-00000
+# 内容如下：
+banzhang	1
+fanfan	1
+ls	2
+yangge	1
+zs	2
+```
+
+运行成功输出到wcoutput文件如下：
+
+![image-20210923224456819](upload/image-20210923224456819.png)
+
+查看统计文件如下：
+
+![image-20210923224701973](upload/image-20210923224701973.png)
+
+## 3.完全分布式运行模式
+
+### 3.1编写虚拟机分发脚本xsync
+
+#### 3.1.1scp（secure copy）安全拷贝
+
+> scp可以实现服务器之间的数据拷贝（from server1 to server2）
+
+基本语法：
+
+（1）从当前服务器推到其他服务（copy to）
+
+```shell
+# 在hadoop102中操作，拷贝jdk到hadoop103服务中的目录
+scp -r /opt/install/jdk1.8.0_241 weiyh@hadoop103:/opt/install/
+	-- -r：递归
+	-- hadoop103：服务名称
+	-- weiyh：用户名
+	
+# 拷贝当前目录下的hadoop到hadoop103中
+scp -r /opt/install/hadoop-3.1.3 weiyh@hadoop103:/opt/install/
+```
+
+（2）从其他服务器拉到当前服务（copy from）
+
+```shell
+# 在hadoop103中操作，从hadoop102拉取文件到当前服务
+scp -r weiyh@hadoop102:/opt/install/hadoop-3.1.3 /opt/install/
+```
+
+（3）在hadoop103中，将102拷贝到104中
+
+```shell
+# 在hadoop103中操作，将hadoop102的文件拷贝到hadoop104中
+scp -r weiyh@hadoop102:/opt/install/* weiyh@hadoop103:/opt/install/
+```
+
+> 若报错如下：
+>
+> Warning: Permanently added 'hadoop102,192.168.10.102' (ECDSA) to the list of known hosts.
+> weiyh@hadoop102's password: 
+> .//jdk1.8.0_241: Permission denied
+>
+> 需要给install文件夹设置权限如下：
+>
+> sudo chwon weiyh:weiyh install/
+
+#### 3.1.2rsync远程同步工具
+
+> - rsync主要用于备份和镜像，具有速度快、避免复制相同内容和支持符号链接的有点
+> - rsync和scp区别：scp相对比较慢，rsync只对差异文件做更新同步，scp是把福哦呦都复制过去。
+
+```shell
+# 在hadoop102中，将hadoop102中的hadoop-3.1.3文件同步到hadoop103中的hadoop-3.1.3文件
+rsync -av hadoop-3.1.3/ weiyh@hadoop103:/opt/install/hadoop-3.1.3
+	-- a：复制归档
+	-- v：显示过程
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
