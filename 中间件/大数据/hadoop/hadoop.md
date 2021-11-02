@@ -447,9 +447,9 @@ zs	2
 
 ### 3.1编写虚拟机分发脚本xsync
 
-#### 3.1.1scp（secure copy）安全拷贝
+#### 3.1.1scp安全拷贝
 
-> scp可以实现服务器之间的数据拷贝（from server1 to server2）
+> scp（secure copy）可以实现服务器之间的数据拷贝（from server1 to server2）
 
 基本语法：
 
@@ -492,7 +492,7 @@ scp -r weiyh@hadoop102:/opt/install/* weiyh@hadoop103:/opt/install/
 
 #### 3.1.2rsync远程同步工具
 
-> - rsync主要用于备份和镜像，具有速度快、避免复制相同内容和支持符号链接的有点
+> - rsync（remote sync）主要用于备份和镜像，具有速度快、避免复制相同内容和支持符号链接的有点
 > - rsync和scp区别：scp相对比较慢，rsync只对差异文件做更新同步，scp是把福哦呦都复制过去。
 
 ```shell
@@ -502,19 +502,101 @@ rsync -av hadoop-3.1.3/ weiyh@hadoop103:/opt/install/hadoop-3.1.3
 	-- v：显示过程
 ```
 
+#### 3.1.3xsync集群分发脚本
 
+> 用于循环复制文件到所有节点的相同目录下。
 
+将如下脚本复制到系统的bin目录下
 
+```shell
+#!/bin/bash
 
+# 1.判断参数个数
+if [ $# -lt 1 ]
+then
+    echo Not Enough Arguement!
+    exit;
+fi
 
+# 2.遍历集群所有机器
+for host in hadoop102 hadoop103 hadoop104
+do
+    echo ====================  $host  ====================
+    #3.遍历所有目录，挨个发送
 
+    for file in $@
+    do
+        # 4.判断文件是否存在
+        if [ -e $file ]
+            then
+                # 5.获取父目录
+                pdir=$(cd -P $(dirname $file); pwd)
 
+                # 6.获取当前文件的名称
+                fname=$(basename $file)
+                ssh $host "mkdir -p $pdir"
+                rsync -av $pdir/$fname $host:$pdir
+            else
+                echo $file does not exists!
+        fi
+    done
+done
+```
 
+执行如下命令变可执行脚本：
 
+```shell
+# 将目录变成可执行脚本
+chmod 777 xsync
 
+# 将bin目录及文件复制到其他节点
+xsync bin/
+```
 
+执行成功后如下：
 
+![image-20211102222607540](upload/image-20211102222607540.png)
 
+若需要复制权限文件（profile.d/下的配置文件），可以执行命令：
+
+```shell
+# 将my_env.sh文件复制到其他系统
+sudo ./bin/xsync /etc/profile.d/my_env.sh
+
+# 刷新配置文件
+source /etc/profile
+```
+
+#### 3.1.4SSH免密访问
+
+![image-20211102224645874](upload/image-20211102224645874.png)
+
+- 将A的公钥放到B中，B将允许A免密访问本机。
+- 当A访问B时，A携带私钥访问B，B解密A的私钥与其公钥进行匹配，成功后将加密数据返回给A，A再用私钥进行解密。
+
+```shell
+# 查看root目录下的隐藏文件
+ls -al
+
+# 在.ssh目录下，生成秘钥和公钥（执行后记性3次回车）
+ssh-keygen -t rsa
+```
+
+![image-20211102230343161](upload/image-20211102230343161.png)
+
+id_rsa：秘钥，id_rsa.pub：公钥
+
+```shell
+# 将秘钥和公钥拷贝到hadoop103和104
+ssh-copy-id hadoop103
+ssh-copy-id hadoop104
+```
+
+执行后，hadoop103和104的.ssh目录下存在如下文件，可以直接使用"ssh hadoop103"命令免密登录操作。
+
+![image-20211102230718735](upload/image-20211102230718735.png)
+
+> 添加秘钥后，可以直接使用xsync命令来复制文件
 
 
 
