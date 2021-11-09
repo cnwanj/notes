@@ -45,15 +45,15 @@
 
 ### 5.1HDFS概述
 
-#### 5.1.1NameNode(nn)
+**5.1.1NameNode(nn)**
 
 存储文件元数据，如**文件名、文件目录结构、文件属性**（生成时间、副本数、文件权限），以及每个文件的块列表和块所在DataNode等。
 
-#### 5.1.2DataNode(dn)
+**5.1.2DataNode(dn)**
 
 本地文件系统**存储文件块数据**，以及**块数据的校验和**。
 
-#### 5.1.3Secondary NameNode(2nn)
+**5.1.3Secondary NameNode(2nn)**
 
 每隔一段时间对NameNode元数据**备份**。
 
@@ -447,7 +447,7 @@ zs	2
 
 ### 3.1编写虚拟机分发脚本xsync
 
-#### 3.1.1scp安全拷贝
+**3.1.1scp安全拷贝**
 
 > scp（secure copy）可以实现服务器之间的数据拷贝（from server1 to server2）
 
@@ -490,7 +490,7 @@ scp -r weiyh@hadoop102:/opt/install/* weiyh@hadoop103:/opt/install/
 >
 > sudo chwon weiyh:weiyh install/
 
-#### 3.1.2rsync远程同步工具
+**3.1.2rsync远程同步工具**
 
 > - rsync（remote sync）主要用于备份和镜像，具有速度快、避免复制相同内容和支持符号链接的有点
 > - rsync和scp区别：scp相对比较慢，rsync只对差异文件做更新同步，scp是把福哦呦都复制过去。
@@ -502,7 +502,7 @@ rsync -av hadoop-3.1.3/ weiyh@hadoop103:/opt/install/hadoop-3.1.3
 	-- v：显示过程
 ```
 
-#### 3.1.3xsync集群分发脚本
+**3.1.3xsync集群分发脚本**
 
 > 用于循环复制文件到所有节点的相同目录下。
 
@@ -567,7 +567,7 @@ sudo ./bin/xsync /etc/profile.d/my_env.sh
 source /etc/profile
 ```
 
-#### 3.1.4SSH免密访问
+**3.1.4SSH免密访问**
 
 ![image-20211102224645874](upload/image-20211102224645874.png)
 
@@ -598,27 +598,392 @@ ssh-copy-id hadoop104
 
 > 添加秘钥后，可以直接使用xsync命令来复制文件
 
+### 3.2集群配置
+
+**1）集群部署规划**
+
+- NameNode和SecondaryNameNode不要安装在同一台服务器上，因为占内存比较大。
+- ResourceManager也消耗很大内存，要独立安装在一台服务器上。
+
+|      | Hadoop102              | Hadoop103                        | Hadoop102                       |
+| ---- | ---------------------- | -------------------------------- | ------------------------------- |
+| HDFS | ==NameNode==、DataNode | DataNode                         | ==SecondaryNameNode==、DataNode |
+| YARN | NodeManager            | ==ResourceManager==、NodeManager | NodeManager                     |
+
+**2）配置文件说明**
+
+> 配置文件分两类：默认配置文件和自定义配置文件，只有修改某一默认配置值时，才用修改对应自定义配置文件，更改相应的值。
+
+默认配置文件：
+
+| 要获取的默认文件     | 文件存放在Hadoop的jar包中的位置                           |
+| -------------------- | --------------------------------------------------------- |
+| [core-default.xml]   | hadoop-common-3.1.3.jar/core-default.xml                  |
+| [hdfs-default.xml]   | hadoop-hdfs-3.1.3.jar/hdfs-default.xml                    |
+| [yarn-default.xml]   | hadoop-yarn-common-3.1.3.jar/yarn-default.xml             |
+| [mapred-default.xml] | hadoop-mapreduce-client-core-3.1.3.jar/mapred-default.xml |
+
+自定义配置文件：
+
+**core-site.xml**、**hdfs-site.xml**、**yarn-site.xml**、**mapred-site.xml**四个配置文件存放在$HADOOP_HOME/etc/hadoop这个路径上。
+
+**3）配置集群**
+
+（1）核心配置文件：
+
+```shell
+# 配置core-site.xml
+cd /opt/install/hadoop-3.1.3/etc/hadoop
+
+# 编辑core-site.xml
+vim core-site.xml
+```
+
+文件配置内容如下：
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<configuration>
+    <!-- 指定NameNode的地址 -->
+    <property>
+        <name>fs.defaultFS</name>
+        <value>hdfs://hadoop102:8020</value>
+    </property>
+
+    <!-- 指定hadoop数据的存储目录（默认的配置是临时文件） -->
+    <property>
+        <name>hadoop.tmp.dir</name>
+        <value>/opt/install/hadoop-3.1.3/data</value>
+    </property>
+
+    <!-- 配置HDFS网页登录使用的静态用户为weiyh -->
+    <property>
+        <name>hadoop.http.staticuser.user</name>
+        <value>weiyh</value>
+    </property>
+</configuration>
+```
+
+（2）HDFS配置文件
+
+```shell
+# 配置hdfs-site.xml
+vim hdfs-site.xml
+```
+
+配置信息如下：
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<configuration>
+	<!-- nn web端访问地址-->
+	<property>
+        <name>dfs.namenode.http-address</name>
+        <value>hadoop102:9870</value>
+    </property>
+	<!-- 2nn web端访问地址-->
+    <property>
+        <name>dfs.namenode.secondary.http-address</name>
+        <value>hadoop104:9868</value>
+    </property>
+</configuration>
+```
+
+（3）YARN配置文件
+
+```shell
+# 配置yarn-site.xml
+vim yarn-site.xml
+```
+
+文件信息如下：
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+<configuration>
+    <!-- 指定MR走shuffle -->
+    <property>
+        <name>yarn.nodemanager.aux-services</name>
+        <value>mapreduce_shuffle</value>
+    </property>
+
+    <!-- 指定ResourceManager的地址-->
+    <property>
+        <name>yarn.resourcemanager.hostname</name>
+        <value>hadoop103</value>
+    </property>
+
+    <!-- 环境变量的继承 -->
+    <property>
+        <name>yarn.nodemanager.env-whitelist</name>
+        <value>JAVA_HOME,HADOOP_COMMON_HOME,HADOOP_HDFS_HOME,HADOOP_CONF_DIR,CLASSPATH_PREPEND_DISTCACHE,HADOOP_YARN_HOME,HADOOP_MAPRED_HOME</value>
+    </property>
+</configuration>
+```
+
+（4）MapReduce配置文件
+
+```shell
+# 配置mapred-site.xml
+vim mapred-site.xml
+```
+
+文件信息如下：
+
+```xml
+<?xml version="1.0" encoding="UTF-8"?>
+<?xml-stylesheet type="text/xsl" href="configuration.xsl"?>
+
+<configuration>
+	<!-- 指定MapReduce程序运行在Yarn上 -->
+    <property>
+        <name>mapreduce.framework.name</name>
+        <value>yarn</value>
+    </property>
+</configuration>
+```
+
+将上面的配置文件同步到hadoop103和104
+
+```shell
+# 将配置文件同步到hadoop103和104
+xsync /opt/install/hadoop-3.1.3/etc/hadoop/
+```
+
+### 3.3群起集群
+
+**3.3.1配置workers**
+
+> 该步骤相当于三个节点绑定成集群
+
+```shell
+# 编辑workers
+vim /opt/install/hadoop-3.1.3/etc/hadoop/workers
+
+# 在workers文件添加如下内容
+hadoop102
+hadoop103
+hadoop104
+	-- 注意：内容结尾不允许有空格和换行
+	
+# 同步到所有节点
+xsync /opt/install/hadoop-3.1.3/etc/hadoop/
+```
+
+**3.3.2启动集群**
+
+**（1）如果集群是第一次启动，需要在hadoop102节点格式化NameNode**
+
+> 注意：若集群运行过程中报错，需要重新格式化NameNode时，一定要停止namenode和datanode进程，并删除所有机器的data和logs文件，然后再重新格式化。因为格式化NameNode会产生新的集群id，导致NameNode和DataNode的id不一致，集群找不到历史数据。
+
+```shell
+# 格式化hadoop102的hdfs namenode
+hdfs namenode -format
+	-- 格式化后hadoop-3.1.3文件会出现data、logs两个文件
+	
+# 在hadoop102上启动集群
+sbin/start-dfs.sh
+
+# 查看集群进程
+jps
+```
+
+hadoop102中集群服务如下：
+
+![image-20211108221224663](upload/image-20211108221224663.png)
+
+```shell
+# hadoop102如下：
+[weiyh@hadoop102 hadoop-3.1.3]$ jps
+2609 DataNode
+2475 NameNode
+2892 Jps
+
+# hadoop103如下：
+[weiyh@hadoop103 ~]$ jps
+2417 Jps
+2266 DataNode
+
+# hadoop104如下：
+[weiyh@hadoop104 ~]$ jps
+2274 DataNode
+2519 Jps
+2347 SecondaryNameNode
+```
+
+**（2）Web端查看**
+
+```shell
+# hadoop103启动yarn
+sbin/start-yarn.sh
+
+# 启动后hadoop103节点的服务如下：
+[weiyh@hadoop103 hadoop-3.1.3]$ jps
+2752 NodeManager
+2631 ResourceManager
+2266 DataNode
+3131 Jps
+```
+
+HDFS的NameNode：https://hsdoop102:9870
+
+Yarn的ResourceManager：https://hadoop103:8088
+
+在配置了ResourceManager的hadoop103节点中启动yarn服务：
+
+**（3）上传文件到集群**
+
+```shell
+# 在hadoop102下创建wcinput文件
+hadoop fs -mkdir /wcinput
+```
+
+![image-20211108224758803](upload/image-20211108224758803.png)
 
 
 
+```shell
+# 上传本地文件到wcinput
+hadoop fs -put wcinput/word.txt /wcinput
+```
+
+![image-20211108225157570](upload/image-20211108225157570.png)
+
+最终上传的数据存在目录：/opt/install/hadoop-3.1.3/data/dfs/data/current/BP-1705422981-192.168.10.102-1636380209605/current/finalized/subdir0/subdir0
+
+![image-20211108225824617](upload/image-20211108225824617.png)
+
+将后面两个文件追加到tmp.tar.gz中
+
+```shell
+# 追加到tmp.tar.gz
+cat blk_1073741826 >> tmp.tar.gz
+cat blk_1073741827 >> tmp.tar.gz
+
+# 再解压tmp.tar.gz
+tar -zxvf tmp.tar.gz
+```
+
+解压成后发现就是刚刚上传的jdk文件
+
+![image-20211108230522789](upload/image-20211108230522789.png)
+
+> 注意：在hadoop103和104节点对应目录上也会备份有相同的数据。
+
+**（4）执行wordcount程序，统计数量**
+
+```shell
+# 将wcinput的词数统计到wcoutput中
+hadoop jar share/hadoop/mapreduce/hadoop-mapreduce-examples-3.1.3.jar wordcount /wcinput /wcoutput
+```
+
+统计成功后如下：
+
+![image-20211109001833541](upload/image-20211109001833541.png)
+
+![image-20211109001903352](upload/image-20211109001903352.png)
+
+若wcoutput中没有文件，需要在/hadoop-3.1.3/etc/hadoop/mapred-site.xml添加配置如下：
+
+```xml
+<configuration>
+	<property>
+		<name>yarn.app.mapreduce.am.env</name>
+		<value>HADOOP_MAPRED_HOME=/opt/install/hadoop-3.1.3</value>
+	</property>
+	<property>
+		<name>mapreduce.map.env</name>
+		<value>HADOOP_MAPRED_HOME=/opt/install/hadoop-3.1.3</value>
+	</property>
+	<property>
+		<name>mapreduce.reduce.env</name>
+		<value>HADOOP_MAPRED_HOME=/opt/install/hadoop-3.1.3</value>
+	</property>
+</configuration>
+```
+
+添加成后删除wcoutput：
+
+```shell
+# 删除wcoutput
+hadoop fs -rm -r /wcoutput
+```
+
+删除成功后再执行wordcount程序。
+
+**（5）集群崩溃处理方法**
+
+```shell
+# 删除所有节点hadoop-3.1.3下的data和logs文件
+rm -rf data/ logs
+
+# 在hadoop102上格式化
+hdfs namenode -format
+
+# 重新启动
+[weiyh@hadoop102 hadoop-3.1.3]$ sbin/start-dfs.sh
+[weiyh@hadoop103 hadoop-3.1.3]$ sbin/start-yarn.sh
+```
 
 
 
+### 3.4配置历史服务器
 
+> 历史服务器主要是用来查看历史服务器运行情况。
 
+```shell
+# 编辑mapred-site.xml
+vim etc/hadoop/mapred-site.xml
+```
 
+加入信息如下：
 
+```xml
+    <!-- 历史服务器端地址 -->
+    <property>
+        <name>mapreduce.jobhistory.address</name>
+        <value>hadoop102:10020</value>
+    </property>
 
+    <!-- 历史服务器web端地址 -->
+    <property>
+        <name>mapreduce.jobhistory.webapp.address</name>
+        <value>hadoop102:19888</value>
+    </property>
+```
 
+配置好后需要重新启动yarn
 
+```shell
+# 分发到其他节点
+xsync etc/hadoop/mapred-site.xml
 
+# 关闭yarn
+sbin/stop-yarn.sh
 
+# 开启yarn
+sbin/start-yarn.sh
 
+# 启动历史服务器（--daemon表示启动守护进程）
+bin/mapred --daemon start historyserver
 
+# 准备数据，创建文件夹
+hadoop fs -mkdir /input
+# 将本地数据添加到input中
+hadoop fs -put wcinput/word.txt /input
+# 执行wordcount
+hadoop jar share/hadoop/mapreduce/hadoop-mapreduce-examples-3.1.3.jar wordcount /input /output
+```
 
+执行完后点击列表的history：
 
+![image-20211109232751017](upload/image-20211109232751017.png)
 
+看到配置历史服务器页面如下：
 
+![image-20211109232823489](upload/image-20211109232823489.png)
 
-
-
+注意：在没有配置之前是打不开该页面的。
