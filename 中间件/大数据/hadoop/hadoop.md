@@ -394,7 +394,7 @@ source /etc/profile
 
 ![image-20210921230215969](upload/image-20210921230215969.png)
 
-# 三、运行模式
+# 三、Hadoop运行模式
 
 ## 1.三种运行模式
 
@@ -445,7 +445,7 @@ zs	2
 
 ## 3.完全分布式运行模式
 
-### 3.1编写虚拟机分发脚本xsync
+### 3.1编写虚拟机分发脚本
 
 **3.1.1scp安全拷贝**
 
@@ -987,3 +987,353 @@ hadoop jar share/hadoop/mapreduce/hadoop-mapreduce-examples-3.1.3.jar wordcount 
 ![image-20211109232823489](upload/image-20211109232823489.png)
 
 注意：在没有配置之前是打不开该页面的。
+
+### 3.5配置日志聚集
+
+> 日志聚集：应用运行完成以后，将程序运行日志信息上传到HDFS系统上。
+
+![image-20211115230447073](upload/image-20211115230447073.png)
+
+```shell
+# 配置yarn-site.xml
+vim /hadoop-3.1.3/etc/hadoop/yarn-site.xml
+```
+
+添加如下配置：
+
+```xml
+    <!-- 开启日志聚集功能 -->
+    <property>
+        <name>yarn.log-aggregation-enable</name>
+        <value>true</value>
+    </property>
+    <!-- 设置日志聚集服务器地址 -->
+    <property>  
+        <name>yarn.log.server.url</name>  
+        <value>http://hadoop102:19888/jobhistory/logs</value>
+    </property>
+    <!-- 设置日志保留时间为7天 -->
+    <property>
+        <name>yarn.log-aggregation.retain-seconds</name>
+        <value>604800</value>
+    </property>
+```
+
+```shell
+# 分发到其他节点
+xsync yarn-site.xml
+```
+
+==开启日志聚集功能，需要重新启动NodeManager 、ResourceManager和HistoryServer。==
+
+```shell
+# 停止历史服务器
+mapred --daemon stop historyserver
+# 启动历史服务器
+mapred --daemon start historyserver
+
+# 重启yarn
+sbin/stop-yarn.sh
+sbin/start-yarn.sh
+
+# 执行wordcount
+hadoop jar share/hadoop/mapreduce/hadoop-mapreduce-examples-3.1.3.jar wordcount /input /output1
+```
+
+选中history的logs就可以看到日志记录如下：
+
+![image-20211115232544482](upload/image-20211115232544482.png)
+
+![image-20211115232602117](upload/image-20211115232602117.png)
+
+### 3.6集群的启动和停止总结
+
+**1）整体启动（配置ssh前提）**
+
+```shell
+# 整体启动/停止hdfs
+sbin/start-dfs.sh
+sbin/stop-dfs.sh
+
+# 整体启动/停止yarn
+sbin/start-yarn.sh
+sbin/stop-yarn.sh
+```
+
+**2）各个服务组件启动/停止**
+
+```shell
+# 启动/停止hdfs组件
+hdfs --daemon start namenode/datanode/secondarynamenode
+hdfs --daemon stop namenode/datanode/secondarynamenode
+
+# 启动/停止yarn组件
+yarn --daemon start resourcemanager/nodemanager
+yarn --daemon stop resourcemanager/nodemanager
+
+# 强制杀死进程
+kill -9 8888
+```
+
+**3）集群启动/关闭脚本**
+
+```shell
+#!/bin/bash
+
+if [ $# -lt 1 ]
+then
+	echo "No Args Input..."
+	exit ;
+fi
+
+case $1 in
+"start")
+	echo " ====================== 启动 hadoop 集群 ====================== "
+	echo " ------------------- 启动 hdfs ------------------- "
+	ssh hadoop102 "/opt/install/hadoop-3.1.3/sbin/start-dfs.sh"
+	echo " ------------------- 启动 yarn ------------------- "
+	ssh hadoop102 "/opt/install/hadoop-3.1.3/sbin/start-yarn.sh"
+	echo " ------------------- 启动 historyserver ------------------- "
+	ssh hadoop102 "/opt/install/hadoop-3.1.3/bin/mapred --daemon start historyserver"
+;;
+"stop")
+	echo " ====================== 关闭 hadoop 集群 ====================== "
+	echo " ------------------- 关闭 historyserver ------------------- "
+	ssh hadoop102 "/opt/install/hadoop-3.1.3/bin/mapred --daemon stop historyserver"
+	echo " ------------------- 关闭 yarn ------------------- "
+	ssh hadoop102 "/opt/install/hadoop-3.1.3/sbin/stop-yarn.sh"
+	echo " ------------------- 关闭 hdfs ------------------- "
+	ssh hadoop102 "/opt/install/hadoop-3.1.3/sbin/stop-dfs.sh"
+;;
+*)
+	echo "Input Args Errpr..."
+;;
+esac
+```
+
+配置上面的脚本如下：
+
+```shell
+# 将脚本内容加入到该文件
+vim bin/myhadoop.sh
+
+# 按i进行复制粘贴，然后按“冒号”，执行wq!保存
+wq!
+
+# 变为可执行脚本
+chmod 777 myhadoop.sh
+
+# 关闭/启动集群
+myhadoop.sh stop
+myhadoop.sh start
+```
+
+**4）jspall查看所有节点的进程**
+
+```shell
+# 编辑jpsall文件
+vim jpsall
+
+# 加入查看进程脚本如下
+#!/bin/bash
+
+for host in hadoop102 hadoop103 hadoop104
+do
+	echo ================== $host ==================
+	ssh $host jps
+done
+
+# 变成可执行脚本
+chmod 777 jpsall
+
+# 执行脚本jpsall
+jpsall
+
+# 同步到其他节点
+xsync bin/
+```
+
+查看结果如下：
+
+![image-20211116223056719](upload/image-20211116223056719.png)
+
+### 3.7常用端口和配置文件
+
+|                            | hadoop2.x                                                    | hadoop3.x                                                    |
+| -------------------------- | ------------------------------------------------------------ | ------------------------------------------------------------ |
+| hdfs nameNode 内部通用端口 | 8020、9000                                                   | 8020、9000、9820                                             |
+| hdfs nameNode 外部访问端口 | 50070                                                        | 9870                                                         |
+| yarn查看任务运行情况       | 8088                                                         | 8088                                                         |
+| 历史服务器                 | 19888                                                        | 19888                                                        |
+| 常用配置文件               | core-site.xml、hdfs-site.xml、yarn-site.xml、mapred-site.xml、workers | core-site.xml、hdfs-site.xml、yarn-site.xml、mapred-site.xml、salaves |
+
+### 3.8集群同步时间
+
+> ​		如果服务器在公网环境（能连接外网），可以不采用集群时间同步，因为服务器会定期和公网时间进行校准。
+>
+> ​		如果服务器在内网环境（不能连接网络），必须要配置集群时间同步，否则时间久了，会产生时间偏差，导致集群执行任务时间不同步。
+
+**1）目标**
+
+以hadoop102为时间服务器，周期性的同步时间到其他节点。
+
+![image-20211122211306323](upload/image-20211122211306323.png)
+
+**2）配置时间服务器（root用户）**
+
+在hadoop102下操作：
+
+```shell
+# 查看ntpd服务状态
+sudo systemctl status ntpd
+# 开启ntpd服务
+sudo systemctl start ntpd
+# 设置开机自启
+sudo systemctl is-enabled ntpd
+
+# 修改ntp.conf配置文件
+sudo vim /etc/ntp.conf
+
+# 修改内容如下：
+
+```
+
+修改内容如下：
+
+```shell
+# 将注释打开，授权192.168.10.0到192.168.10.255都可以从该节点查询和同步时间
+restrict 192.168.10.0 mask 255.255.255.0 nomodify notrap
+# 注释下面内容，集群在局域网中，不使用其他互联网上的时间
+#server 0.centos.pool.ntp.org iburst
+#server 1.centos.pool.ntp.org iburst
+#server 2.centos.pool.ntp.org iburst
+#server 3.centos.pool.ntp.org iburst
+
+# 添加内容，当该节点丢失网络，依旧可以使用本地时间
+server 127.127.1.0
+fudge 127.127.1.0 stratum 10
+```
+
+修改hadoop102的/etc/sysconfig/ntpd
+
+```shell
+sudo vim /etc/sysconfig/ntpd
+
+# 添加配置，让硬件时间与系统时间一起同步
+SYNC_HWCLOCK=yes
+
+# 重启ntpd
+sudo systemctl stop ntpd
+sudo systemctl start ntpd
+# 设置ntpd开机自启
+sudo systemctl enable ntpd
+```
+
+3）配置其他节点（root用户）
+
+```shell
+# 关闭所有节点的ntpd服务
+sudo systemctl stop ntpd
+sudo systemctl disable ntpd
+
+# 配置一分钟同步一次时间
+sudo crontab -e
+# 添加内容如下：
+*/1 * * * * /usr/sbin/ntpdate hadoop102
+
+# 修改服务器时间
+sudo date -s "2021-9-11 11:11:11"
+# 过一分钟后查看时间
+sudo date
+```
+
+## 4.常见错误及解决方案
+
+1）防火墙没关闭、或者没有启动YARN
+
+```
+INFO client.RMProxy: Connecting to ResourceManager at hadoop108/192.168.10.108:8032
+```
+
+2）主机名称配置错误
+
+3）IP地址配置错误
+
+4）ssh没有配置好
+
+5）root用户和atguigu两个用户启动集群不统一
+
+6）配置文件修改不细心
+
+7）不识别主机名称
+
+```
+java.net.UnknownHostException: hadoop102: hadoop102
+        at java.net.InetAddress.getLocalHost(InetAddress.java:1475)
+        at org.apache.hadoop.mapreduce.JobSubmitter.submitJobInternal(JobSubmitter.java:146)
+        at org.apache.hadoop.mapreduce.Job$10.run(Job.java:1290)
+        at org.apache.hadoop.mapreduce.Job$10.run(Job.java:1287)
+        at java.security.AccessController.doPrivileged(Native Method)
+at javax.security.auth.Subject.doAs(Subject.java:415)
+```
+
+解决办法：
+
+- 在/etc/hosts文件中添加192.168.10.102 hadoop102。
+- 主机名称不要起hadoop  hadoop000等特殊名称。
+
+8）DataNode和NameNode进程同时只能工作一个：
+
+![img](upload/wps8655.tmp.png)
+
+9）执行命令不生效，粘贴Word中命令时，遇到-和长–没区分开。导致命令失效。
+
+- 解决办法：尽量不要直接复制粘贴。
+
+10）jps发现进程已经没有，但是重新启动集群，提示进程已经开启。
+
+- 原因是在Linux的根目录下/tmp目录中存在启动的进程临时文件，将集群相关进程删除掉，再重新启动集群。
+
+11）jps不生效
+
+- 原因：全局变量hadoop java没有生效。解决办法：需要source /etc/profile文件。
+
+12）8088端口连接不上
+
+[atguigu@hadoop102 桌面]$ cat /etc/hosts
+
+注释掉如下代码：
+
+```shell
+#127.0.0.1   localhost localhost.localdomain localhost4 localhost4.localdomain4
+#::1         hadoop102
+```
+
+13）128MB分段存储
+
+- Block Size表示允许存储最大范围，并不是当前不占用内存。
+- 如185.53 MB的jdk压缩包会被分成两段存储，即两个Block ID。
+
+![image-20211122222626716](upload/image-20211122222626716.png)
+
+![image-20211122223007479](upload/image-20211122223007479.png)
+
+# 四、HDFS概述
+
+## 1.HDFS背景和定义
+
+**1）背景**
+
+​		随着数据的增多，单体服务器不能存下所有数据，需要分配到更多系统的磁盘中，导致操作和维护的困难，迫切==需要一种系统来管理多节点上的文件==，就是分布式文件系统，其中HDFS只是其中的一种。
+
+**2）定义**
+
+​		HDFS（Hadoop Distributed File System）分布式文件系统，通过目录树来定位文件，由多个服务器联合实现分布式，每个服务器有各自的角色。
+
+​		使用场景：==一次写入，多次读出，==一个文件经过创建、写入和关闭就不需要改变了。
+
+## 2.HDFS优缺点
+
+![img](upload/wps5A7.tmp.png)
+
+![img](upload/wps294D.tmp.png)
