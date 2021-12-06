@@ -1337,3 +1337,407 @@ at javax.security.auth.Subject.doAs(Subject.java:415)
 ![img](upload/wps5A7.tmp.png)
 
 ![img](upload/wps294D.tmp.png)
+
+## 3.HDFS的架构
+
+![image-20211124211458830](upload/image-20211124211458830.png)
+
+1）NameNode（NN），相当于主管、管理者（master）
+
+- 管理HDFS的命名空间。
+- 配置资源策略。
+- 管理数据块（Block）配置信息。
+- 处理客户端的请求。
+
+2）DataNode，相当下属（slave），处理NameNode下达的命令
+
+- 处理NameNode的请求，执行实际的读写操作。
+- 存储实际的数据块。
+
+3）Secondary NameNode，并非NN的热备，当NameNode挂了并不能马上替换来提供服务
+
+- 辅助NN分担工作，如定期合并镜像（Fsimage）和编辑（Edits），然后推送给NN。
+- 在紧急情况下，可辅助回复NN。
+
+4）Client客户端
+
+- 文件切分，上传到HDFS时，Client将文件切分成多个Block，然后再上传。
+- 与NameNode进行交互，获取文件位置及信息。
+- Client提供一些命令来管理HDFS，如NameNode格式化，以及zsgc操作
+
+## 4.HDFS块大小（Block）
+
+> HDFS中的文件是物理分块（Block），块的大小可以通过配置参数（dfs.blocksize）来决定的，==Hadoop2.x/3.x版本中默认大小是128M，1.x版本是64M==
+
+- 若寻址时间为10ms（找到目标的时间为10ms）。
+- 寻址时间为传输速率的1%为最佳（传输时间：10ms ÷ 0.01 = 1000ms = 1s）。
+- 磁盘的传输速率普遍为100MB/s。
+
+**思考：为什么块的大小设置不能太大，也不能太小？**
+
+- 设置小了，会增加寻址时间，会一直从开始位置寻找。
+- 设置大了，会降低传输速率，传输时间明显大于寻址时间，导致在处理当前块的数据非常慢。
+
+==总结：HDFS块大小的设置取决于磁盘的传输速率。==
+
+# 五、HDFS的操作
+
+## 1.Shell操作
+
+### 1.1基本语法
+
+```shell
+# 查看HDFS命令大全
+hadoop fs / hdfs dfs
+# 查看命令如下：
+Usage: hadoop fs [generic options]
+	[-appendToFile <localsrc> ... <dst>]
+	[-cat [-ignoreCrc] <src> ...]
+	[-checksum <src> ...]
+	[-chgrp [-R] GROUP PATH...]
+	[-chmod [-R] <MODE[,MODE]... | OCTALMODE> PATH...]
+	[-chown [-R] [OWNER][:[GROUP]] PATH...]
+	[-copyFromLocal [-f] [-p] [-l] [-d] [-t <thread count>] <localsrc> ... <dst>]
+	[-copyToLocal [-f] [-p] [-ignoreCrc] [-crc] <src> ... <localdst>]
+	[-count [-q] [-h] [-v] [-t [<storage type>]] [-u] [-x] [-e] <path> ...]
+	[-cp [-f] [-p | -p[topax]] [-d] <src> ... <dst>]
+	[-createSnapshot <snapshotDir> [<snapshotName>]]
+	[-deleteSnapshot <snapshotDir> <snapshotName>]
+	[-df [-h] [<path> ...]]
+	[-du [-s] [-h] [-v] [-x] <path> ...]
+	[-expunge]
+	[-find <path> ... <expression> ...]
+	[-get [-f] [-p] [-ignoreCrc] [-crc] <src> ... <localdst>]
+	[-getfacl [-R] <path>]
+	[-getfattr [-R] {-n name | -d} [-e en] <path>]
+	[-getmerge [-nl] [-skip-empty-file] <src> <localdst>]
+	[-head <file>]
+	[-help [cmd ...]]
+	[-ls [-C] [-d] [-h] [-q] [-R] [-t] [-S] [-r] [-u] [-e] [<path> ...]]
+	[-mkdir [-p] <path> ...]
+	[-moveFromLocal <localsrc> ... <dst>]
+	[-moveToLocal <src> <localdst>]
+	[-mv <src> ... <dst>]
+	[-put [-f] [-p] [-l] [-d] <localsrc> ... <dst>]
+	[-renameSnapshot <snapshotDir> <oldName> <newName>]
+	[-rm [-f] [-r|-R] [-skipTrash] [-safely] <src> ...]
+	[-rmdir [--ignore-fail-on-non-empty] <dir> ...]
+	[-setfacl [-R] [{-b|-k} {-m|-x <acl_spec>} <path>]|[--set <acl_spec> <path>]]
+	[-setfattr {-n name [-v value] | -x name} <path>]
+	[-setrep [-R] [-w] <rep> <path> ...]
+	[-stat [format] <path> ...]
+	[-tail [-f] [-s <sleep interval>] <file>]
+	[-test -[defsz] <path>]
+	[-text [-ignoreCrc] <src> ...]
+	[-touch [-a] [-m] [-t TIMESTAMP ] [-c] <path> ...]
+	[-touchz <path> ...]
+	[-truncate [-w] <length> <path> ...]
+	[-usage [cmd ...]]
+	
+# 查看对应命令的帮助文档
+hadoop fs -help rm
+# 帮助文档如下：
+-rm [-f] [-r|-R] [-skipTrash] [-safely] <src> ... :
+  Delete all files that match the specified file pattern. Equivalent to the Unix
+  command "rm <src>"
+                                                                                 
+  -f          If the file does not exist, do not display a diagnostic message or 
+              modify the exit status to reflect an error.                        
+  -[rR]       Recursively deletes directories.                                   
+  -skipTrash  option bypasses trash, if enabled, and immediately deletes <src>.  
+  -safely     option requires safety confirmation, if enabled, requires          
+              confirmation before deleting large directory with more than        
+              <hadoop.shell.delete.limit.num.files> files. Delay is expected when
+              walking over large directory recursively to count the number of    
+              files to be deleted before the confirmation.  
+```
+
+### 1.2常用命令操作
+
+**1.2.1上传**
+
+1）-moveFromLocal（从本地剪切到HDFS）
+
+```shell
+# 创建文件夹
+hadoop fs -mkdir /xiyouji
+
+# 创建文件
+vim tangseng.txt
+# 输入
+tangseng
+# 从本地剪切到HDFS
+hadoop fs -moveFromLocal tangseng.txt  /xiyouji
+```
+
+2）-copyFromLocal（从本地拷贝到HDFS）
+
+```shell
+# 创建文件
+vim sunwukong.txt
+# 输入
+sunwukong
+# 从本地拷贝到HDFS
+hadoop fs -copyFromLocal sunwukong.txt /xiyouji
+```
+
+3）-put（等同于copyFromLocal）
+
+```shell
+# 创建文件
+vim zhubajie.txt
+# 输入
+zhubajie
+# 拷贝到HDFS
+hadoop fs -put zhubajie.txt /xiyouji
+```
+
+4）-appendToFile（追加一个文件内容到已存在的文件末尾）
+
+```shell
+# 创建文件
+vim shaheshang.txt
+# 输入
+shaheshang
+# 追加本地文件内容到HDFS文件末尾
+hadoop fs -appendToFile shaheshang.txt /xiyouji/zhubajie.txt
+```
+
+**1.2.2下载**
+
+1）-copyToLocal（从HDFS拷贝到本地）
+
+```shell
+# 拷贝到本地
+hadoop fs -copyToLocal /xiyouji/tangseng.txt /
+```
+
+2）-get（同等于-copyToLocal）
+
+```shell
+# 拷贝到本地
+hadoop fs -get /xiyouji/tangseng.txt /tangseng1.txt
+```
+
+**1.2.3HDFS直接操作**
+
+```shell
+# 1.-ls（显示目录）
+hadoop fs -ls /
+
+# 2.-cat（查看文件内容）
+hadoop fs -cat /xiyouji/tangseng.txt
+
+# 3.-chgrp、-cnmod、-chown（修改文件所属属性，与linux一样）
+hadoop fs -chmod 666 /xiyouji/tangseng.txt
+# 修改文件分组
+hadoop fs -chown weiyh:weiyh /xiyouji/tangseng.txt
+
+# 4.-mkdir（创建文件路径）
+hadoop fs -mkdir /xitian
+
+# 5.-cp（从HDFS的一个拷贝到另一个路径）
+hadoop fs -cp /xiyouji/tangseng.txt /xitian
+
+# 6.-mv（在HDFS中移动文件）
+hadoop fs -mv /xiyouji/sunwukong.txt /xitian
+hadoop fs -mv /xiyouji/zhubajie.txt /xitian
+
+# 7.-tail（显示文件末尾1KB内容）
+hadoop fs -tail /xiyouji/shaheshang.txt
+
+# 8.-rm（删除文件或文件夹）
+hadoop fs -rm /xiyouji/tangseng.txt
+
+# 9.-rm -r（递归删除目录及目录下的文件）
+hadoop fs -rm -r /xiyouji
+
+# 10.-du（统计文件夹大小）
+hadoop fs -du -s -h /xitian
+39  117  /xitian
+
+# 列出文件大小详情
+hadoop fs -du -h /xitian
+    10  30  /xitian/sunwukong.txt
+    9   27  /xitian/tangseng.txt
+    20  60  /xitian/zhubajie.txt
+	# 27表示文件大小，81表示27*3个副本
+	
+# 11.-setrep（设置文件副本数量）
+hadoop fs -setrep 10 /xitian/tangseng.txt
+```
+
+
+
+> 这里设置的副本只是记录在NameNode元数据中，真正副本的数量得看DataNode的数量。因为目前只有3个节点，最多也就3个副本，节点增加到10，副本的数量才能达到10。
+
+## 2.HDFS的API操作
+
+### 2.1客户端环境准备
+
+1）下载winutils
+
+下载winutils：https://github.com/cdarlint/winutils.git
+
+配置环境变量：
+
+HADOOP_HOME：E:\dev-tools\linux\system\CentOS-7.0\hadoop\hadoop-3.1.0
+
+Path：%HADOOP_HOME%\bin
+
+![image-20211129222847895](upload/image-20211129222847895.png)
+
+![image-20211129222910705](upload/image-20211129222910705.png)
+
+2）idea创建一个maven工程项目hdfs-client，并导入依赖如下：
+
+```xml
+<dependencies>
+    <dependency>
+        <groupId>org.apache.hadoop</groupId>
+        <artifactId>hadoop-client</artifactId>
+        <version>3.1.3</version>
+    </dependency>
+    <dependency>
+        <groupId>junit</groupId>
+        <artifactId>junit</artifactId>
+        <version>4.12</version>
+    </dependency>
+    <dependency>
+        <groupId>org.slf4j</groupId>
+        <artifactId>slf4j-log4j12</artifactId>
+        <version>1.7.30</version>
+    </dependency>
+</dependencies>
+```
+
+在项目的src/main/resources目录下，新建log4j.properties文件，并配置日志如下：
+
+```properties
+log4j.rootLogger=INFO, stdout  
+log4j.appender.stdout=org.apache.log4j.ConsoleAppender  
+log4j.appender.stdout.layout=org.apache.log4j.PatternLayout  
+log4j.appender.stdout.layout.ConversionPattern=%d %p [%c] - %m%n  
+log4j.appender.logfile=org.apache.log4j.FileAppender  
+log4j.appender.logfile.File=target/spring.log  
+log4j.appender.logfile.layout=org.apache.log4j.PatternLayout  
+log4j.appender.logfile.layout.ConversionPattern=%d %p [%c] - %m%n
+```
+
+创建包名：com.weiyh.hdfs，并创建类HdfsClient如下：
+
+```java
+public class HdfsClient {
+
+	private FileSystem fs;
+
+	@Before
+	public void init() throws Exception {
+		// 连接集群的NameNode地址，8020为内网端口
+		URI uri = new URI("hdfs://hadoop102:8020");
+		// 配置文件
+		Configuration configuration = new Configuration();
+		// 设置副本数量（优先级最大）
+		configuration.set("dfs.replication", "2");
+		// 操作用户
+		String user = "weiyh";
+		// 客户端对象
+		fs = FileSystem.get(uri, configuration, user);
+	}
+
+	@After
+	public void close() throws Exception {
+		// 关闭客户端
+		fs.close();
+	}
+
+	// 1.创建文件夹
+	@Test
+	public void testMkdir() throws Exception {
+		fs.mkdirs(new Path("/xiyouji/qujing"));
+	}
+
+	// 2.上传文件
+	@Test
+	public void testPut() throws Exception {
+		// 是否删除本地、是否覆盖已存在文件、本地路径、目标路径
+		fs.copyFromLocalFile(false, true,
+			new Path("D:\\sunwukong.txt"), new Path("/xiyouji/qujing"));
+	}
+
+	// 3.下载文件
+	@Test
+	public void testGet() throws Exception {
+		// 是否删除源文件、hdfs路径、本地路径、是否不开启本地校验（增多crc校验文件）
+		fs.copyToLocalFile(false, new Path("/xiyouji/qujing/sunwukong.txt"),
+			new Path("D:\\sunwukong1.txt"), true);
+	}
+
+	// 4.删除文件
+	@Test
+	public void testDelete() throws Exception {
+		// 删除文件，文件路径、是否递归删除
+		fs.delete(new Path("/input/word.txt"), false);
+
+		// 删除空文件夹
+		fs.delete(new Path("/input"), false);
+
+		// 删除非空文件夹
+		fs.delete(new Path("/xitian"), true);
+	}
+
+	// 5.移动文件
+	@Test
+	public void testMove() throws Exception {
+		// 修改文件名
+		fs.rename(new Path("/output/word.txt"), new Path("/output/word1.txt"));
+
+		// 移动文件并更改名称
+		fs.rename(new Path("/output/word1.txt"), new Path("/word2.txt"));
+
+		// 更改文件夹
+		fs.rename(new Path("/output"), new Path("/output2"));
+	}
+
+	// 6.获取文件详情
+	@Test
+	public void testFileDetail() throws Exception {
+		// 获取文件信息（文件路径、是否递归子目录）
+		RemoteIterator<LocatedFileStatus> fileList = fs.listFiles(new Path("/"), true);
+		while (fileList.hasNext()) {
+			LocatedFileStatus file = fileList.next();
+			System.out.println("=============" + file.getPath() + "=============");
+			System.out.println("权限：" + file.getPermission());
+			System.out.println("用户：" + file.getOwner());
+			System.out.println("分组：" + file.getGroup());
+			System.out.println("大小：" + file.getLen());
+			System.out.println("时间：" + file.getModificationTime());
+			System.out.println("副本：" + file.getReplication());
+			System.out.println("块大小：" + file.getBlockSize());
+			System.out.println("名称：" + file.getPath().getName());
+			System.out.println("块信息：" + Arrays.toString(file.getBlockLocations()));
+		}
+	}
+
+	// 7.判断文件和目录
+	@Test
+	public void testCheckFile() throws Exception {
+		FileStatus[] fileArr = fs.listStatus(new Path("/"));
+		for (FileStatus status : fileArr) {
+			if (status.isFile()) {
+				System.out.println("文件：" + status.getPath().getName());
+			} else {
+				System.out.println("目录：" + status.getPath().getName());
+			}
+		}
+	}
+}
+```
+
+> 参数配置优先级（低 > 高）：
+>
+> hdfs-default.xml > hdfs-site.xml > 客户端资源目录文件hdfs-site.xml > 配置类
+
+
+
+![image-20211206235143897](upload/image-20211206235143897.png)
