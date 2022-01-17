@@ -163,3 +163,24 @@ fix()向0取整，floor()向负无穷取整。
 
 - rem(9, -5) = 4，mod(9, -5) = -1。
 
+## 4.常用Lamda表达式
+```java
+// List转Map，并去重key
+Map<Integer, User> map = list.stream().collect(Collectors.toMap(User::getId, Function.identity(), (key, value) -> key));
+
+// 添加逗号分隔符
+String ids = list.stream().map(User::getId).distinct().collect(Collectors.join(","));
+
+// 求和
+long sum = list.stream().mapToLong(User::getAge).sum();
+BigDecimal bigSum = list.stream().map(User::getMoney).reduce(BigDecimal.ZERO, BigDecimal::add);
+
+// 求和存在map中
+Map<Integer, Integer> mapSum = list.stream().collect(Collectors.toMap(User::getId, User::getAge, Integer::sum));
+
+// 分组
+Map<Integer, List<User>> map = list.stream().collect(Collectors.groupingBy(User::getId, Collectors.toList()));
+
+// 倒序排序
+list.sort(Comparator.comparing(User::getId).thenComparing(User::getAge).reversed());
+```
