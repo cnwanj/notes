@@ -420,7 +420,7 @@ fanfan
 yangge
 
 # 回到hadoop目录下，统计词数到wcoutput文件中
-bin/hadoop jar share/hadoop/mapreduce/hadoop-mapreduce-examples-3.1.3.jar wordcount wcinput/ ./wcoutput
+bin/hadoop jar share/hadoop/mapreduce/hadoop-mapreduce-examples-3.1.3.jar wordcount /wcinput /wcoutput
 	-- 通过hadoop命令运行jar包hadoop-mapreduce-examples-3.1.3.jar
 	-- 统计wcinput中的词数到wcoutput中
 	-- 注意：若输出文件wcoutput存在，会报错
@@ -1624,6 +1624,8 @@ log4j.appender.logfile.layout=org.apache.log4j.PatternLayout
 log4j.appender.logfile.layout.ConversionPattern=%d %p [%c] - %m%n
 ```
 
+### 2.2API案例实操
+
 创建包名：com.weiyh.hdfs，并创建类HdfsClient如下：
 
 ```java
@@ -1738,6 +1740,395 @@ public class HdfsClient {
 >
 > hdfs-default.xml > hdfs-site.xml > 客户端资源目录文件hdfs-site.xml > 配置类
 
-
+# 六、HDFS读写流程
 
 ![image-20211206235143897](upload/image-20211206235143897.png)
+
+（1）客户端通过Distributed FileSystem模块向NameNode请求上传文件，NameNode检查目标文件是否已存在，父目录是否存在。
+
+（2）NameNode返回是否可以上传。
+
+（3）客户端请求第一个 Block上传到哪几个DataNode服务器上。
+
+（4）NameNode返回3个DataNode节点，分别为dn1、dn2、dn3。
+
+（5）客户端通过FSDataOutputStream模块请求dn1上传数据，dn1收到请求会继续调用dn2，然后dn2调用dn3，将这个通信管道建立完成。
+
+（6）dn1、dn2、dn3逐级应答客户端。
+
+（7）客户端开始往dn1上传第一个Block（先从磁盘读取数据放到一个本地内存缓存），以Packet为单位，dn1收到一个Packet就会传给dn2，dn2传给dn3；dn1每传一个packet会放入一个应答队列等待应答。
+
+（8）当一个Block传输完成之后，客户端再次请求NameNode上传第二个Block的服务器。（重复执行3-7步）。
+
+# 七、NN、2NN和DataNode
+
+## 1.NN和2NN工作机制
+
+> NameNode的元数据存储在哪里？
+
+​		首先，我们做个假设，如果存储在NameNode节点的磁盘中，因为经常需要进行随机访问，还有响应客户请求，必然是效率过低。因此，元数据需要存放在内存中。但如果只存在内存中，一旦断电，元数据丢失，整个集群就无法工作了。==因此产生在磁盘中备份元数据的FsImage。==
+
+​		这样又会带来新的问题，当在内存中的元数据更新时，如果同时更新FsImage，就会导致效率过低，但如果不更新，就会发生一致性问题，一旦NameNode节点断电，就会产生数据丢失。==因此，引入Edits文件（只进行追加操作，效率很高）。每当元数据有更新或者添加元数据时，修改内存中的元数据并追加到Edits中。==这样，一旦NameNode节点断电，可以通过FsImage和Edits的合并，合成元数据。
+
+​		但是，如果长时间添加数据到Edits中，会导致该文件数据过大，效率降低，而且一旦断电，恢复元数据需要的时间过长。因此，需要定期进行FsImage和Edits的合并，如果这个操作由NameNode节点完成，又会效率过低。==因此，引入一个新的节点SecondaryNamenode，专门用于FsImage和Edits的合并。==
+
+- **阶段1：NameNode启动**
+
+  - 第一次启动NameNode格式化后，创建Fsimage和Edits文件。如果不是第一次启动，直接加载编辑日志和镜像文件到内存。
+
+  - 客户端对元数据进行增删改的请求。
+
+  - NameNode记录操作日志，更新滚动日志。
+
+  - NameNode在内存中对元数据进行增删改。
+
+- **阶段2：SecondaryNameNode工作**
+  - Secondary NameNode询问NameNode是否需要CheckPoint。直接带回NameNode是否检查结果。
+  - Secondary NameNode请求执行CheckPoint。
+  - NameNode滚动正在写的Edits日志。
+  - 将滚动前的编辑日志和镜像文件拷贝到Secondary NameNode。
+  - Secondary NameNode加载编辑日志和镜像文件到内存，并合并。
+  - 生成新的镜像文件fsimage.chkpoint。
+  - 拷贝fsimage.chkpoint到NameNode。
+  - NameNode将fsimage.chkpoint重新命名成fsimage。
+
+## 2.Fsimage和Edits解析
+
+NameNode格式化后，在/opt/install/hadoop-3.1.3/data/dfs/name/current目录下产生文件：
+
+edits_0000000000000000001-0000000000000000002
+
+fsimage_0000000000000000450
+
+fsimage_0000000000000000450.md5
+
+seen_txid
+
+VERSION
+
+- Edits文件：存放HDFS所有更新操作的路径，客户端执行的所有操作首先会被记录到Edits文件中。
+- Fsimage文件：HDFS元数据的一个永久性检查点，包含HDFS所有目录和文件节点序列化信息。
+- seen_txid文件：保存一个数字，最后一个edits_的数字。
+- Version：保存命名空间id、集群id（NN和2NN保持想通的标识）、创建时间等信息。
+
+> NameNode每次启动都会将Fsimage文件读入内存中，并加载Edits中的更新操作，保证内存的元数据是最新的、同步的，相当于将Fsimage和Edits文件进行了合并。
+
+**1）oiv和oev命令**
+
+> oiv：apply the offline fsimage viewer to an fsimage
+>
+> oev：apply the offline edits viewer to an edits file
+
+（1）oiv查看Fsimage文件
+
+```shell
+# 基本语法
+hdfs oiv -p 文件类型 -i 镜像文件 -o 转换后输出路径
+
+# 转换为xml格式的文件
+hdfs oiv -p xml -i fsimage_0000000000000000025 -o /opt/tools/fsimage.xml
+```
+
+格式化显示结果如下：
+
+```xml
+<inode>
+	<id>16386</id>
+	<type>DIRECTORY</type>
+	<name>user</name>
+	<mtime>1512722284477</mtime>
+	<permission>atguigu:supergroup:rwxr-xr-x</permission>
+	<nsquota>-1</nsquota>
+	<dsquota>-1</dsquota>
+</inode>
+<inode>
+	<id>16387</id>
+	<type>DIRECTORY</type>
+	<name>atguigu</name>
+	<mtime>1512790549080</mtime>
+	<permission>atguigu:supergroup:rwxr-xr-x</permission>
+	<nsquota>-1</nsquota>
+	<dsquota>-1</dsquota>
+</inode>
+<inode>
+	<id>16389</id>
+	<type>FILE</type>
+	<name>wc.input</name>
+	<replication>3</replication>
+	<mtime>1512722322219</mtime>
+	<atime>1512722321610</atime>
+	<perferredBlockSize>134217728</perferredBlockSize>
+	<permission>atguigu:supergroup:rw-r--r--</permission>
+	<blocks>
+		<block>
+			<id>1073741825</id>
+			<genstamp>1001</genstamp>
+			<numBytes>59</numBytes>
+		</block>
+	</blocks>
+</inode >
+```
+
+记录文件的信息以及每一个节点的文件结构。
+
+> 思考：可以看出，Fsimage中没有记录块所对应DataNode，为什么？
+>
+> 在集群启动后，要求DataNode上报数据块信息，并间隔一段时间后再次上报。
+
+（2）oev查看Edits文件
+
+```shell
+# 基本操作
+hdfs oev -p 文件类型 -i编辑日志 -o 转换后文件输出路径
+# 转换文件为xml格式
+hdfs oev -p XML -i edits_0000000000000000012-0000000000000000013 -o /opt/tools/edits.xml
+```
+
+格式化后显示结果如下：
+
+```xml
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<EDITS>
+  <EDITS_VERSION>-64</EDITS_VERSION>
+  <RECORD>
+    <OPCODE>OP_START_LOG_SEGMENT</OPCODE>
+    <DATA>
+      <TXID>451</TXID>
+    </DATA>
+  </RECORD>
+  <RECORD>
+    <OPCODE>OP_MKDIR</OPCODE>
+    <DATA>
+      <TXID>452</TXID>
+      <LENGTH>0</LENGTH>
+      <INODEID>16486</INODEID>
+      <PATH>/aaa</PATH>
+      <TIMESTAMP>1639406332282</TIMESTAMP>
+      <PERMISSION_STATUS>
+        <USERNAME>weiyh</USERNAME>
+        <GROUPNAME>supergroup</GROUPNAME>
+        <MODE>493</MODE>
+      </PERMISSION_STATUS>
+    </DATA>
+  </RECORD>
+  <RECORD>
+    <OPCODE>OP_ADD</OPCODE>
+    <DATA>
+      <TXID>453</TXID>
+      <LENGTH>0</LENGTH>
+      <INODEID>16487</INODEID>
+      <PATH>/aaa/word.txt</PATH>
+      <REPLICATION>3</REPLICATION>
+      <MTIME>1639406355088</MTIME>
+      <ATIME>1639406355088</ATIME>
+      <BLOCKSIZE>134217728</BLOCKSIZE>
+      <CLIENT_NAME>DFSClient_NONMAPREDUCE_-437197787_35</CLIENT_NAME>
+      <CLIENT_MACHINE>192.168.10.104</CLIENT_MACHINE>
+      <OVERWRITE>false</OVERWRITE>
+      <PERMISSION_STATUS>
+        <USERNAME>weiyh</USERNAME>
+        <GROUPNAME>supergroup</GROUPNAME>
+        <MODE>420</MODE>
+      </PERMISSION_STATUS>
+      <ERASURE_CODING_POLICY_ID>0</ERASURE_CODING_POLICY_ID>
+      <RPC_CLIENTID>3723b5e9-ee27-4235-93b8-26df6c73f240</RPC_CLIENTID>
+      <RPC_CALLID>137</RPC_CALLID>
+    </DATA>
+  </RECORD>
+  <RECORD>
+    <OPCODE>OP_ALLOCATE_BLOCK_ID</OPCODE>
+    <DATA>
+      <TXID>454</TXID>
+      <BLOCK_ID>1073741872</BLOCK_ID>
+    </DATA>
+  </RECORD>
+  <RECORD>
+    <OPCODE>OP_SET_GENSTAMP_V2</OPCODE>
+    <DATA>
+      <TXID>455</TXID>
+      <GENSTAMPV2>1049</GENSTAMPV2>
+    </DATA>
+  </RECORD>
+  <RECORD>
+    <OPCODE>OP_ADD_BLOCK</OPCODE>
+    <DATA>
+      <TXID>456</TXID>
+      <PATH>/aaa/word.txt</PATH>
+      <BLOCK>
+        <BLOCK_ID>1073741872</BLOCK_ID>
+        <NUM_BYTES>0</NUM_BYTES>
+        <GENSTAMP>1049</GENSTAMP>
+      </BLOCK>
+      <RPC_CLIENTID/>
+      <RPC_CALLID>-2</RPC_CALLID>
+    </DATA>
+  </RECORD>
+  <RECORD>
+    <OPCODE>OP_CLOSE</OPCODE>
+    <DATA>
+      <TXID>457</TXID>
+      <LENGTH>0</LENGTH>
+      <INODEID>0</INODEID>
+      <PATH>/aaa/word.txt</PATH>
+      <REPLICATION>3</REPLICATION>
+      <MTIME>1639406356216</MTIME>
+      <ATIME>1639406355088</ATIME>
+      <BLOCKSIZE>134217728</BLOCKSIZE>
+      <CLIENT_NAME/>
+      <CLIENT_MACHINE/>
+      <OVERWRITE>false</OVERWRITE>
+      <BLOCK>
+        <BLOCK_ID>1073741872</BLOCK_ID>
+        <NUM_BYTES>9</NUM_BYTES>
+        <GENSTAMP>1049</GENSTAMP>
+      </BLOCK>
+      <PERMISSION_STATUS>
+        <USERNAME>weiyh</USERNAME>
+        <GROUPNAME>supergroup</GROUPNAME>
+        <MODE>420</MODE>
+      </PERMISSION_STATUS>
+    </DATA>
+  </RECORD>
+</EDITS>
+```
+
+记录了目录及文件创建添加的每一个步骤。
+
+> 思考：NameNode如何确定下次开机启动的时候合并哪些Edits？
+>
+> 每次开机会将==edits_inprogress_01==文件合并到最新的==fsimage_02==文件，
+>
+> 关机时同样也会合并。
+
+## 3.DataNode的工作机制
+
+![img](upload/wpsCF44.tmp.png)
+
+（1）一个数据块在DataNode上以文件形式存储在磁盘上，包括两个文件，一个是数据本身，一个是元数据包括数据块的长度，块数据的校验和，以及时间戳。
+
+（2）DataNode启动后向NameNode注册，通过后，周期性（6小时）的向NameNode上报所有的块信息。
+
+```xml
+<!-- hdfs-default.xml文件配置6小时周期 -->
+<property>
+	<name>dfs.blockreport.intervalMsec</name>
+	<value>21600000</value>
+	<description>Determines block reporting interval in milliseconds.</description>
+</property>
+
+<!-- DataNode自己扫描时间间隔默认6小时 -->
+<property>
+	<name>dfs.datanode.directoryscan.interval</name>
+	<value>21600s</value>
+	<description>Interval in seconds for Datanode to scan data directories and reconcile the difference between blocks in memory and on the disk.
+	Support multiple time unit suffix(case insensitive), as described
+	in dfs.heartbeat.interval.
+	</description>
+</property>
+```
+
+（3）心跳是每3秒一次，心跳返回结果带有NameNode给该DataNode的命令如复制块数据到另一台机器，或删除某个数据块。如果超过10分钟+30秒没有收到某个DataNode的心跳，则认为该节点不可用。
+
+（4）集群运行中可以安全加入和退出一些机器。
+
+## 4.数据完整性
+
+> 思考：DataNode节点上的数据损坏了，却没有发现，是否也很危险，那么如何解决呢？
+
+- 当DataNode读取Block的时候，会计算CheckSum。
+- 若CheckSum与Block创建时不一样，说明Block已经损坏。
+- Client读取其他DataNode上的Block，通过算法校验。
+- 算法有：crc(32)，md5(128)，shal(160)。
+- DataNode文件创建后会周期验证CheckSum。
+
+![img](upload/wps87F7.tmp.png)
+
+# 八、MapReduce
+
+## 1.MapReduce定义
+
+- MapReduce是一个分布式运算程序的编程框架，是用户开发“基于Hadoop的数据分析应用”的核心框架。
+
+- MapReduce核心功能是将用户编写的业务逻辑代码和自带默认组件整合成一个完整的分布式运算程序，并发运行在一个Hadoop集群上。
+
+## 2.MapReduce优缺点
+
+- **优点：**
+  - **MapReduce易于编程：**它简单的实现一些接口，就可以完成一个分布式程序，这个分布式程序可以分布到大量廉价的PC机器上运行。也就是说你写一个分布式程序，跟写一个简单的串行程序是一模一样的。就是因为这个特点使得MapReduce编程变得非常流行。
+  - **良好的扩展性：**当你的计算资源不能得到满足的时候，你可以通过简单的增加机器来扩展它的计算能力。
+  - **高容错性：**MapReduce设计的初衷就是使程序能够部署在廉价的PC机器上，这就要求它具有很高的容错性。比如其中一台机器挂了，它可以把上面的计算任务转移到另外一个节点上运行，不至于这个任务运行失败，而且这个过程不需要人工参与，而完全是由Hadoop内部完成的。
+  - **适合PB级以上海量数据的离线处理：**可以实现上千台服务器集群并发工作，提供数据处理能力。
+- **缺点：**
+  - **不擅长实时计算：**MapReduce无法像MySQL一样，在毫秒或者秒级内返回结果。
+  - **不擅长流式计算：**流式计算的输入数据是动态的，而MapReduce的输入数据集是静态的，不能动态变化。这是因为MapReduce自身的设计特点决定了数据源必须是静态的。
+  - **不擅长DAG（有向无环图）计算：**多个应用程序存在依赖关系，后一个应用程序的输入为前一个的输出。在这种情况下，MapReduce并不是不能做，而是使用后，每个MapReduce作业的输出结果都会写入到磁盘，会造成大量的磁盘IO，导致性能非常的低下。
+
+## 3.MapReduce工作流程
+
+### （1）MapTask工作机制
+
+![image-20220116224505511](upload/image-20220116224505511.png)
+
+> 主要分为5个阶段：Read、Map、Collect、溢写、Merge。
+
+- Read阶段：
+  - 客户端提交数据。
+  - 计算MapTask数量。
+  - 通过InputFormat的RecorderReader来读取数据。
+- Map阶段：
+  - 将读取到的数据返回给自定义Map中。
+- Collect阶段：
+  - 输出到环形缓冲区（一边存索引、一边存数据）。
+  - 将各个分区中的数据进行快速排序。
+  - 数据到达80%进行溢写。
+- 溢写阶段：
+  - 溢写到磁盘文件中。
+- Merge阶段：
+  - 将分区数据进行归并排序。
+
+### （2）ReduceTask工作机制
+
+![image-20220116224522449](upload/image-20220116224522449.png)
+
+> 主要分为3个阶段：Copy、Sort、Reduce。
+
+- Copy阶段：
+  - 拉取MapTask的数据。
+
+- Sort阶段：
+  - 归并排序拉取的数据。
+
+- Reduce阶段：
+  - 相同key的数据进入到自定义的Recude方法。
+  - 通过OutputFormat的RecordWriter希尔遇到磁盘文件中。
+
+## 4.MapReduce总结
+
+> Input - InputFormat - > Map - Shuffle - > Reduce - OutputFormat - > Output
+
+![image-20220119221302930](upload/image-20220119221302930.png)
+
+- InputFormat：
+  - TextInputFormat：是默认输入类型，key是偏移量，value是一行内容。
+  - CombineTextInputFormat：处理小文件，把多个文件合并到一个统一切片中。
+- Mapper：
+  - setup()：初始化。
+  - map()：编写业务逻辑。
+  - clearup()：关闭资源。
+- 分区：
+  - HashPartitioner：默认分区，按照key的hash % numReduceTasks个数。
+  - 自定义分区数。
+- 排序：
+  - 部分排序：每个map阶段输出文件内部有序。
+  - 全排序：reduce中对所有数据进行排序。
+  - 二次排序：自定义排序，实现WritableCompare接口，重写compareTo接口，进行正序、倒序。
+- Combiner：
+  - 聚合数据，提前聚合Map，解决数据倾斜。
+  - 前提是不能影响最终业务逻辑（求和可以，不能求平均值）。
+- Reducer：
+  - setup()：初始化。
+  - reduce()：编写业务逻辑。
+  - clearup()：关闭资源。
+- OutputFormat：
+  - TextOutputFormat：默认按行输出文件。
+  - 可以自定义输出。
