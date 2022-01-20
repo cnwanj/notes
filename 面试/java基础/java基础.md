@@ -169,7 +169,7 @@ fix()向0取整，floor()向负无穷取整。
 Map<Integer, User> map = list.stream().collect(Collectors.toMap(User::getId, Function.identity(), (key, value) -> key));
 
 // 添加逗号分隔符
-String ids = list.stream().map(User::getId).distinct().collect(Collectors.join(","));
+String ids = list.stream().map(User::getId).distinct().collect(Collectors.joining(","));
 
 // 求和
 long sum = list.stream().mapToLong(User::getAge).sum();
