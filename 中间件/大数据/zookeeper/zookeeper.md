@@ -44,7 +44,7 @@ zookeeper官网下载：https://archive.apache.org/dist/zookeeper/
   - 第二轮服务器4淘汰（ZXID最小淘汰）。
   - 第三轮服务器2成为Leader（SID最大胜出）。
 
-
+# 三、启动脚本
 
 **启动hadoop102、hadoop103、hadoop104脚本**
 
@@ -94,17 +94,25 @@ bin/zkServer.sh start-foreground
 
 
 
-## 动态监听服务器上下线
+# 四、动态监听服务器上下线
 
 在分布式系统中，有多个节点，可以动态上下线，客户端能够感知节点的上下线情况。
 
-## 五、Zookeeper分布式锁
+# 五、Zookeeper分布式锁
 
-> 分布式锁和分布式事务的区别：
->
-> - 锁是一个过程，事务则是最终的结果状态
+分布式锁和分布式事务的区别：
 
-### 1.实现Zookeeper分布式锁
+- 分布式锁：解决并发资源抢占问题。
+  - 采用redis（redission）、zookeeper（curator）解决。
+- 分布式事务：解决顺序化提交问题，保证事务遵循ACID原则。
+  - 采用rocketMQ解决。
+  - 2PC（Two-phase commit protocol）二段提交，分别是**准备阶段、提交阶段**
+  - 3PC三段提交，分别是**准备阶段、预提交阶段和提交阶段**，把2PC的提交阶段拆分为两个阶段。
+  - TCC（Try - Confirm - Cancel），2PC和3PC是强一致事务性，都是数据库层面的，TCC是业务层面的。
+
+参考：https://zhuanlan.zhihu.com/p/183753774
+
+## 1.实现Zookeeper分布式锁
 
 DistributedLock.java
 
@@ -262,11 +270,181 @@ public class DistributedLockTest {
 
 
 
-### 2.Curator实现分布式锁
+## 2.Curator实现分布式锁
 
-官网：https://curator.apache.org/
+### 2.1官网解释：
 
 Apache Curator is a Java/JVM client library for [Apache ZooKeeper](https://zookeeper.apache.org/), a distributed coordination service. It includes a highlevel API framework and utilities to make using Apache ZooKeeper much easier and more reliable. It also includes recipes for common use cases and extensions such as service discovery and a Java 8 asynchronous DSL.
 
 意思是：Curator是Zookeeper的一个Java/Jvm客户端库，也是一个分布式协调服务，Curator成为Zookeeper更简单可靠的一个高可用框架和工具，它也包含了一些常用的用例和扩展方法，如Java8和异步DSL。
 
+> 官网：https://curator.apache.org
+
+### 2.2原生API缺点：
+
+- 会话连接是异步的，需要自己去处理；比如使用 CountDownLatch。
+- Watch 需要重复注册，不然就不能生效。
+- 开发的复杂性还是比较高的。
+- 不支持多节点删除和创建,需要自己去递归。
+
+### 2.3curator实现案例
+
+maven依赖引入：
+
+```xml
+<!-- zookeeper依赖 -->
+<dependency>
+    <groupId>org.apache.zookeeper</groupId>
+    <artifactId>zookeeper</artifactId>
+    <version>3.5.7</version>
+</dependency>
+
+<!-- curator依赖 -->
+<dependency>
+    <groupId>org.apache.curator</groupId>
+    <artifactId>curator-framework</artifactId>
+    <version>4.3.0</version>
+</dependency>
+<dependency>
+    <groupId>org.apache.curator</groupId>
+    <artifactId>curator-recipes</artifactId>
+    <version>4.3.0</version>
+</dependency>
+<dependency>
+    <groupId>org.apache.curator</groupId>
+    <artifactId>curator-client</artifactId>
+    <version>4.3.0</version>
+</dependency>
+```
+
+
+
+```java
+package com.cnwanj.lock.curator;
+
+import org.apache.curator.RetryPolicy;
+import org.apache.curator.framework.CuratorFramework;
+import org.apache.curator.framework.CuratorFrameworkFactory;
+import org.apache.curator.framework.recipes.locks.InterProcessMutex;
+import org.apache.curator.retry.ExponentialBackoffRetry;
+
+/**
+ * @author: cnwanj
+ * @date: 2022-02-20 11:57:56
+ * @version: 1.0
+ * @desc: curator实现分布式锁
+ */
+public class CuratorTest {
+
+	private String rootNode = "/locks";
+	private String connectString = "hadoop102:2181,hadoop103:2181,hadoop104:2181";
+	private int connectionTimeout = 2000;
+	private int sessionTimeout = 2000;
+
+	public static void main(String[] args) {
+		new CuratorTest().test();
+	}
+
+	private void test() {
+		// 分布式锁1
+		InterProcessMutex lock1 = new InterProcessMutex(getCuratorFramework(), rootNode);
+		// 分布式锁2
+		InterProcessMutex lock2 = new InterProcessMutex(getCuratorFramework(), rootNode);
+		// 线程1
+		new Thread(() -> {
+			try {
+				lock1.acquire();
+				System.out.println("线程1获取锁");
+				lock1.acquire();
+				System.out.println("线程1再次获取锁");
+				Thread.sleep(5 * 1000);
+				lock1.release();
+				System.out.println("线程1释放锁");
+				lock1.release();
+				System.out.println("线程1再次释放锁");
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}).start();
+		// 线程1
+		new Thread(() -> {
+			try {
+				lock2.acquire();
+				System.out.println("线程2获取锁");
+				lock2.acquire();
+				System.out.println("线程2再次获取锁");
+				Thread.sleep(5 * 1000);
+				lock2.release();
+				System.out.println("线程2释放锁");
+				lock2.release();
+				System.out.println("线程2再次释放锁");
+			} catch (Exception e) {
+				e.printStackTrace();
+			}
+		}).start();
+	}
+
+	private CuratorFramework getCuratorFramework() {
+		// 重试策略，尝试时间3秒，重试3次
+		RetryPolicy policy = new ExponentialBackoffRetry(3000, 3);
+		// 创建Curator
+		CuratorFramework client = CuratorFrameworkFactory.builder()
+			.connectString(connectString)
+			.connectionTimeoutMs(connectionTimeout)
+			.sessionTimeoutMs(sessionTimeout)
+			.retryPolicy(policy)
+			.build();
+		// 开启连接
+		client.start();
+		System.out.println("zk初始化完成...");
+		return client;
+	}
+}
+```
+
+# 六、算法基础
+
+## 1.拜占庭将军问题
+
+## 2.Paxos算法
+
+## 3.ZAB协议
+
+### 3.1ZAP介绍
+
+Zab 借鉴了 Paxos 算法，是特别为 Zookeeper 设计的支持崩溃恢复的原子广播协议。基于该协议，Zookeeper 设计为只有一台客户端（Leader）负责处理外部的写事务请求，然后Leader 客户端将数据同步到其他 Follower 节点。即 Zookeeper 只有一个 Leader 可以发起提案。
+
+## 4.CAP理论
+
+CAP理论告诉我们，一个分布式系统不可能同时满足以下三种：
+
+- 一致性（Consistency） 
+- 可用性（Available） 
+- 分区容错性（Partition Tolerance）
+
+这三个基本需求，最多只能同时满足其中的两项，因为P是必须的，因此往往选择就在CP或者AP中。
+
+1）一致性（Consistency）
+
+在分布式环境中，一致性是指数据在多个副本之间是否能够保持数据一致的特性。在一致性的需求下，当一个系统在数
+
+据一致的状态下执行更新操作后，应该保证系统的数据仍然处于一致的状态。 
+
+2）可用性（Available） 
+
+可用性是指系统提供的服务必须一直处于可用的状态，对于用户的每一个操作请求总是能够在有限的时间内返回结果。 
+
+3）分区容错性（Partition Tolerance）
+
+分布式系统在遇到任何网络分区故障的时候，仍然需要能够保证对外提供满足一致性和可用性的服务，除非是整个网络
+
+环境都发生了故障。
+
+==ZooKeeper保证的是CP==
+
+- Zookeeper不能保真每次服务请求都可用（在极端环境下，ZooKeeper可能会丢弃一些请求，消费者程序需要重新请求才能获得结果）。所以说，ZooKeeper不能保证服务可用性。
+- 进行Leader选举时集群不可用。
+
+
+
+==Leader和Follow通过SocketNIO进行通信连接==
