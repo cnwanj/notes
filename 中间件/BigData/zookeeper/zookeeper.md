@@ -59,7 +59,7 @@ zookeeper官网下载：https://archive.apache.org/dist/zookeeper/
 ```shell
 #!/bin/bash
 # 判断没有参数
-if [$# -lt 1]
+if [ $# -lt 1 ]
 then
 	echo "No Args Input..."
 	exit;
