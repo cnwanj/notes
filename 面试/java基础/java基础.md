@@ -1,6 +1,4 @@
-
-
-# Java基础知识
+# 一、Java基础知识
 
 ## 1.线程的3种创建方式
 
@@ -163,7 +161,12 @@ fix()向0取整，floor()向负无穷取整。
 
 - rem(9, -5) = 4，mod(9, -5) = -1。
 
-## 4.常用Lamda表达式
+## 4.Java8新特性
+
+java8新特性主要有：速度提升（红黑树）、Lambda表达式（箭头函数）、方法引用（Integer::compare）、stream工具API、日期工具类优化。
+
+## 5.常用Lamda表达式
+
 ```java
 // List转Map，并去重key
 Map<Integer, User> map = list.stream().collect(Collectors.toMap(User::getId, Function.identity(), (key, value) -> key));
@@ -184,3 +187,175 @@ Map<Integer, List<User>> map = list.stream().collect(Collectors.groupingBy(User:
 // 倒序排序
 list.sort(Comparator.comparing(User::getId).thenComparing(User::getAge).reversed());
 ```
+
+## 6.动态代理模式实现AOP
+
+### 6.1静态代理
+
+静态代理，只能代理固定的对象。
+
+```java
+interface ClothFactory {
+
+	void produceCloth();
+}
+
+class ProxyClothFactory implements ClothFactory {
+
+	private ClothFactory clothFactory;
+
+	public ProxyClothFactory(ClothFactory clothFactory) {
+		this.clothFactory = clothFactory;
+	}
+
+	@Override
+	public void produceCloth() {
+		System.out.println("生产前...");
+		clothFactory.produceCloth();
+		System.out.println("生产后...");
+	}
+}
+
+class AntaClothFactory implements ClothFactory {
+
+	@Override
+	public void produceCloth() {
+		System.out.println("生产安踏...");
+	}
+}
+
+public class StaticProxyTest {
+	public static void main(String[] args) {
+		// 通过代理工厂去生产安踏
+		ClothFactory clothFactory = new ProxyClothFactory(new AntaClothFactory());
+		clothFactory.produceCloth();
+	}
+}
+```
+
+### 6.2动态代理，实现AOP
+
+通过Proxy.newProxyInstance实现动态代理。
+
+```java
+interface Human {
+
+	String study();
+
+	void eat(String food);
+
+}
+
+class SuperMan implements Human {
+
+	@Override
+	public String study() {
+		return "我要学习变强";
+	}
+
+	@Override
+	public void eat(String food) {
+		System.out.println("我今天吃" + food);
+	}
+}
+
+class ProxyFactory {
+
+	// 获取动态代理实例对象
+	public static Object getProxyInstance(Object object) {
+		// 类加载器、类接口、代理放大类对象
+		return Proxy.newProxyInstance(
+			object.getClass().getClassLoader(),
+			object.getClass().getInterfaces(),
+			new MyInvocation(object));
+	}
+}
+
+// 自定义代理调度器，用于获取被代理对象的方法
+class MyInvocation implements InvocationHandler {
+
+	private Object object;
+
+	public MyInvocation(Object object) {
+		this.object = object;
+	}
+
+	// 通过代理对象掉用方法时，就会自动调用invoke()方法
+	@Override
+	public Object invoke(Object proxy, Method method, Object[] args) throws Throwable {
+		System.out.println("执行方法前调用...");
+		Object invoke = method.invoke(object, args);
+		System.out.println("执行方法后调用...");
+		return invoke;
+	}
+}
+
+public class ProxyTest {
+
+	public static void main(String[] args) {
+		// 获取superman的代理对象
+		Human proxyInstance = (Human) ProxyFactory.getProxyInstance(new SuperMan());
+		System.out.println(proxyInstance.study());
+		proxyInstance.eat("饺子");
+		System.out.println("----------------------------");
+		// 代理衣服工厂
+		ClothFactory clothFactory = (ClothFactory) ProxyFactory.getProxyInstance(new AntaClothFactory());
+		clothFactory.produceCloth();
+	}
+}
+```
+
+
+
+# 二、Spring基础知识
+
+## 1.Bean的生命周期
+
+主要步骤：实例化、初始化、创建和使用、销毁
+
+- 解析xml或注解配置的类，创建Bean定义BeanDefinition（如Bean的作用域是单例或原型，加载模式是不是懒加载）。
+- 通过BeanDefinition反射实例化对象。
+- 将实例化的Bean填充对象属性。
+- 实现Aware相关接口，如BeanNameAware、BeanClassLoaderAware、BeanFactoryAware等接口。
+- 初始化前调用BeanPostProcessor实现类，执行方法postProcessorBeforeInitialization方法。
+- Bean初始化（配置init-method、实现InitializingBean接口）。
+- 初始化后调用BeanPostProcessor实现类，执行方法postProcessorAfterInitialization方法。
+- 将Bean放入Map中，供业务使用。
+- 销毁Bean（PreDestroy注解、配置destroy-method、调用DisposableBean接口的destroy()方法）。
+
+# 三、MQ基础问题
+
+参考：
+
+博客链接：https://doocs.github.io/advanced-java
+
+CSDN链接：https://blog.csdn.net/lettyisme/article/details/85233008
+
+## 1.为什么用MQ？
+
+> 目的：解耦、异步、削峰
+
+- 解耦：A系统调接口发送数据到BCD系统，若C系统不需要这个数据，或者是E系统需要这个数据，那A系统负责人将忙不过来，导致A系统与其他系统耦合严重。若使用MQ，A系统只需将数据通过MQ发送出去，其他系统需要直接从MQ这里消费，不需要则取消MQ消费即可。A系统压根不用管后面的路程，也不用考虑其他系统是否调用成功、失败超时等情况。
+- 异步：A系统需要在本地存库，需要3ms，还要同步数据到BCD系统，需要800ms，总延时过长。使用MQ，发送到本地后发送3条MQ消息的时间的9ms，A系统从接收请求到发送MQ只需要总时长10ms，至于同步数据就让系统去处理了。
+- 削峰：A系统平常风平浪静，并发数也就30，一到晚上8点，并发量就达到100k，假如MySQL承受的并发量为20k，一旦这些请求打到MySQL会直接崩溃。这时候可以将请求发送到MQ中，A系统每次拉取20k请求，从而保证了系统的稳定性。
+
+## 2.消息丢失怎么解决？
+
+> 消息丢失可能会发生在：生产者、MQ、消费者
+
+这里通过RabbitMQ来描述：
+
+- 生产者丢失：
+  - 生产者在发送数据到MQ时，因为网络故障导致消息丢失。
+  - 此时可以选择MQ提供的事务功能，当MQ没有收到消息时，就会发送异常提示给生产者，这时候就可以通过事务进行回滚。
+  - 还可以在生产者这开启confirm模式，每次写消息都会分配一个全局唯一的ID，若成功写入消息到MQ中，则MQ会回传一个成功的Ack消息。若写入失败，则回调一个nack接口，告诉生产者可以重试。
+  - 一般选择confirm作为解决消息丢失的处理方案，因为事务会导致消息堵塞，而confirm是通过异步来处理，速度较快。
+- MQ丢失：
+  - 开启MQ持久化。
+  - 创建队列的时候开启持久化。
+  - 将发送消息的deliveryMode设置为2，表示持久化。
+- 消费者丢失：
+  - 关闭自动ack回应。
+  - 在代码中进行自定义ack。
+  - 若一直没有ack，MQ会把这个消息分配给其他消费者消费。
+
