@@ -188,9 +188,56 @@ Map<Integer, List<User>> map = list.stream().collect(Collectors.groupingBy(User:
 list.sort(Comparator.comparing(User::getId).thenComparing(User::getAge).reversed());
 ```
 
-## 6.动态代理模式实现AOP
+## 6.Java线程生命周期
 
-### 6.1静态代理
+### 6.1线程生命周期4种状态
+
+参考：https://zhuanlan.zhihu.com/p/88920254
+
+> 四种状态：初始化、运行、休眠、终止。
+
+- **初始化状态（NEW）**
+
+  - 线程对象在编程语言级别创建成功，但在操作系统中还并没有创建对应的线程，这个时候的线程还不能获得CPU资源。
+
+- **运行状态（RUNNABLE）**
+
+  - 可运行状态：可以获取CPU资源。
+  - 运行中状态：已获取CPU资源。
+
+- **休眠状态（WAITING、TIME_WAITING 、BLOCKED）**
+
+  - 线程调用了堵塞接口进入休眠状态，此时无法获取CPU资源，直到某个条件点（时间）到达会唤醒该线程。
+
+  - BLOCKED：当一个线程在等待synchronizd同步块的锁时，线程会处于BLOCKED状态。
+
+    WAITING：当一个处于RUNNABLE的线程调用该线程的阻塞API时线程进入WAITING状态，直到其他线程将其唤醒。
+
+    TIME_WAITING：在WAITING状态的方法上加了超时时间。
+
+- **终止状态（TERMINATED）**
+
+  - 线程执行结束或遇到异常会终止。
+
+# 二、Spring基础知识
+
+## 1.Bean的生命周期
+
+主要步骤：实例化、初始化、创建和使用、销毁
+
+- 解析xml或注解配置的类，创建Bean定义BeanDefinition（如Bean的作用域是单例或原型，加载模式是不是懒加载）。
+- 通过BeanDefinition反射实例化对象。
+- 将实例化的Bean填充对象属性。
+- 实现Aware相关接口，如BeanNameAware、BeanClassLoaderAware、BeanFactoryAware等接口。
+- 初始化前调用BeanPostProcessor实现类，执行方法postProcessorBeforeInitialization方法。
+- Bean初始化（配置init-method、实现InitializingBean接口）。
+- 初始化后调用BeanPostProcessor实现类，执行方法postProcessorAfterInitialization方法。
+- 将Bean放入Map中，供业务使用。
+- 销毁Bean（PreDestroy注解、配置destroy-method、调用DisposableBean接口的destroy()方法）。
+
+## 2.动态代理模式实现AOP
+
+### 2.1静态代理
 
 静态代理，只能代理固定的对象。
 
@@ -233,7 +280,7 @@ public class StaticProxyTest {
 }
 ```
 
-### 6.2动态代理，实现AOP
+### 2.2动态代理，实现AOP
 
 通过Proxy.newProxyInstance实现动态代理。
 
@@ -307,29 +354,13 @@ public class ProxyTest {
 
 
 
-# 二、Spring基础知识
-
-## 1.Bean的生命周期
-
-主要步骤：实例化、初始化、创建和使用、销毁
-
-- 解析xml或注解配置的类，创建Bean定义BeanDefinition（如Bean的作用域是单例或原型，加载模式是不是懒加载）。
-- 通过BeanDefinition反射实例化对象。
-- 将实例化的Bean填充对象属性。
-- 实现Aware相关接口，如BeanNameAware、BeanClassLoaderAware、BeanFactoryAware等接口。
-- 初始化前调用BeanPostProcessor实现类，执行方法postProcessorBeforeInitialization方法。
-- Bean初始化（配置init-method、实现InitializingBean接口）。
-- 初始化后调用BeanPostProcessor实现类，执行方法postProcessorAfterInitialization方法。
-- 将Bean放入Map中，供业务使用。
-- 销毁Bean（PreDestroy注解、配置destroy-method、调用DisposableBean接口的destroy()方法）。
-
 # 三、MQ基础问题
 
-参考：
-
-博客链接：https://doocs.github.io/advanced-java
-
-CSDN链接：https://blog.csdn.net/lettyisme/article/details/85233008
+> 参考：
+>
+> 博客链接：https://doocs.github.io/advanced-java
+>
+> CSDN链接：https://blog.csdn.net/lettyisme/article/details/85233008
 
 ## 1.为什么用MQ？
 
@@ -339,7 +370,13 @@ CSDN链接：https://blog.csdn.net/lettyisme/article/details/85233008
 - 异步：A系统需要在本地存库，需要3ms，还要同步数据到BCD系统，需要800ms，总延时过长。使用MQ，发送到本地后发送3条MQ消息的时间的9ms，A系统从接收请求到发送MQ只需要总时长10ms，至于同步数据就让系统去处理了。
 - 削峰：A系统平常风平浪静，并发数也就30，一到晚上8点，并发量就达到100k，假如MySQL承受的并发量为20k，一旦这些请求打到MySQL会直接崩溃。这时候可以将请求发送到MQ中，A系统每次拉取20k请求，从而保证了系统的稳定性。
 
-## 2.消息丢失怎么解决？
+## 2.MQ有什么缺点？
+
+- 系统可用性低：唯一MQ突然G了，整个系统会导致崩溃。
+- 系统复杂度高：会引发一系列问题，需要保证消息重复消费、保证消息顺序性、保证消息不丢失等。
+- 数据不一致问题：写入多个系统的时候，需要保证所有系统都写入成功。
+
+## 3.消息丢失怎么解决？
 
 > 消息丢失可能会发生在：生产者、MQ、消费者
 
@@ -359,3 +396,215 @@ CSDN链接：https://blog.csdn.net/lettyisme/article/details/85233008
   - 在代码中进行自定义ack。
   - 若一直没有ack，MQ会把这个消息分配给其他消费者消费。
 
+## 4.MQ之间的区别
+
+> 主要MQ有：ActiveMQ、RabbitMQ、RocketMQ、Kafka
+
+- ActiveMQ：
+  - 是基于JMS（Java Message Serevice）统一接口实现，是Java平台面向消息中间件的接口。
+  - 属于Apache的老牌MQ中间件，现在社区不怎么活跃，一般不推荐使用。
+
+- RabbitMQ：
+  - 基于AMQP（Advanced Message Queuing Protocol）高级消息队列协议规范实现，是应用层协议的一个开放标准。
+  - 有单机、普通集群、镜像集群三种模式，高可用下采用第三种模式，可以指定将数据自动同步到其他节点，进行镜像备份。
+  - 镜像集群模式下，镜像同步是将队列的所有数据进行备份，无法进行线性扩展。
+- RocketMQ：
+  - 是一个分布式消息服务，通过NameServer管理各个角色的信息，即生产者和消费者可以在NameServer上查找对应的Broker IP，起到解耦作用，NameServer且相互独立，没有主从之分。
+  - Broker负责存储消息，对应部署的一台服务器，Topic包含多个Queue，当消息多的时候，Topic可以分片存储在不同的Broker中。
+- Kafka：
+  - 也是基于AQMP高级消息队列协议规范实现的。
+  - 天然的分布式消息队列，一个节点就是一个Broker，一个集群由多个Broker组成，Broker中包含多个Topic。
+  - Topic可以分为多个Partition存储到不同的Broker中，在每个Partition中是有序的。
+  - 拥有副本机制，有主从Leader和Follow的关系，Partition的数据会同步到其他节点形成副本，每个节点会选举出一个Leader。
+  - 生产者和消费者负责跟Leader打交道，生产者写数据到Leader，Leader落盘到本地，接着Follow会主动从Leader中Pull数据，成功后响应Ack。
+
+## 5.消息顺序性怎么保证？
+
+> 消息顺序性就是消费者没有按照顺序消费消息导致，如：生产者发送消息的顺序是D1 > D2 > D3，分别为增加、修改和删除，然而消费顺序是D1 > D3 > D2，增加、删除再修改，就会直接报错。
+
+RabbitMQ：拆分多个queue，一个queue对应一个consumer，然后consumer内部进行排序，分发给不同的worker。
+
+## 6.消息积压问题
+
+- 提高消费并行度：
+  - 增加consumer实例。
+  - 在已有的服务器启动多个线程。
+  - 提高单个consumer的并行线程，通过改参数consumeThreadMin、consumeThreadMax实现。
+- 批量方式消费：
+  - 消费者默认一次消费1条数据，通过设置consumeMessageBatchMaxSize参数，可以一次消费N条数据。
+- 跳过非重要消息：
+  - 可以选择丢弃掉部分不重要消息。
+- 提高优化消费过程：
+  - 减少与DB交互的次数。
+
+## 7.RocketMQ分布式事务
+
+参考：https://www.jianshu.com/p/286cac4625b6
+
+分为两个阶段：Prepared（预备阶段）和Commit/Rollback（确认阶段）。
+
+- **Prepared（预备阶段）：**该阶段主要发一个消息到rocketmq，但该消息只储存在commitlog中，但consumeQueue中不可见，也就是消费端（订阅端）无法看到此消息。
+
+- **Commit/Rollback（确认阶段）：**该阶段主要是把prepared消息保存到consumeQueue中，即让消费端可以看到此消息，也就是可以消费此消息。
+
+**异常问题：**
+
+如果发送预备消息成功，执行本地事务成功，但发送确认消息失败；这个就有问题了，因为用户A扣款成功了，但加钱业务没有订阅到确认消息，无法加钱。这里出现了数据不一致。
+
+**解决：**
+
+RocketMQ回查：
+
+- 核心思路就是状态回查，就是RocketMQ会定时遍历commitlog中的预备消息。
+- 在确认阶段发生异常，MQ会定时回查预提交状态，成功的话会继续进行确认阶段。
+- 若回查次数超过指定次数次数（transactionCheckMax，默认15），将Rollback消息。
+
+- 回查相关参数：
+  - transactionTimeout=60，60秒内发起回查，默认60。
+  - transactionCheckMax=15，回查次数，默认15。
+  - transactionCheckInterval=60，回查间隔时间，默认60。
+
+
+
+# 四、Redis
+
+## Redis数据类型
+
+String
+
+Hash
+
+List
+
+Set
+
+Zset
+
+新-Bitmaps
+
+新-HyperLogLog
+
+新-Geospatial
+
+## 1.分布式锁
+
+确保分布式锁的可用性，需要满足4个条件：
+
+- 互斥性：
+  - 任意时候，客户端只能持有一把锁。
+- 不会发生死锁：
+  - 持锁期间宕机，其他进程只能等待。
+  - 解决：可以设置过期时间。
+- 不能发生误操作：
+  - 加锁和解锁都必须是同一客户端，不能给别人解锁。
+  - 通过设置uuid判断加锁和解锁客户端是否一致。
+- 保证原子性：
+  - 判断uuid和解锁过程不是原子操作，还是会导致误操作。
+  - 采用lua脚本判断uuid是否相同，在释放锁前执行，执行中别的操作不能进行，保证了原子性。
+
+### 1.1如何设置分布式锁？
+
+通过nx设置分布式锁
+
+```shell
+# setnx表示加锁
+setnx age 5
+```
+
+### 1.2锁一直不释放怎么处理？
+
+```shell
+# nx表示加锁，ex表示过期时间为10秒
+set age 5 nx ex 10
+```
+
+### 1.3如何防止锁释放错？
+
+> - 服务器A：在上锁之后，进行操作时，发生网络卡顿或服务器卡顿，过期时间到了自动释放锁。
+> - 服务器B：抢到锁进行上锁，进行操作中。
+> - 服务器A：这时执行完操作后，手动释放锁，就会将服务器B的锁给释放了，这就导致误操作。
+
+在加锁时设置value为uuid，在释放的时候获取锁value判断是否是当前uuid，然后再释放锁。
+
+## 2.缓存穿透
+
+**描述：**透过redis缓存，直接访问数据库。
+
+- 由于key对应的数据源为空，每次请求缓存获取不到，而直接将请求压到了数据源，从而压垮数据库。
+- 用一个不存在的用户id获取用户信息，无论是缓存还是数据源都没有，将直接请求到数据库。
+
+**解决：**
+
+- 对空值缓存：
+  - 将缓存中查询到的key为空时，放到缓存中，并设置较短的过期时间。
+  - 缺点：访问攻击的时间不能确定，不能针对设置过期时间。
+- 设置访问白名单：
+  - 采用bitmaps类型设置白名单，名单id作为bitmaps偏移量，每次访问与id比较，不在名单里面进行拦截。
+  - 缺点：效率低，每次都要对bitmaps中的id进行比较。
+- 采用布隆过滤器：
+  - 由很长的向量函数和一系列的随机函数组成。
+  - 缺点：命中率低，可能会命中不到。
+- 实时监控设置黑名单：
+  - 排查访问对象，进行设置黑名单。
+
+## 3.缓存击穿
+
+**描述：**针对一个热门key进行访问，且此时缓存失效。
+
+- 大量访问中都用到这个key，正好这个key过期了，导致请求都打到数据库上。
+
+**解决：**
+
+- 预先设置过期时间：在访问高峰前，提前设置key过期时间，并加大key过期时长。
+- 实时调整：通过实时监控，调整key的过期时间。
+- 使用锁：缓存失效时，加锁判断key，并设置上过期时间（缺点：速度慢）。
+
+## 4.缓存雪崩
+
+**描述：**极短的时间段，大批量的key集中过期。
+
+**解决：**
+
+- 构建多级缓存：
+  - 采用nginx缓存 + redis缓存 + 其他缓存等。
+  - 缺点：结构过于复杂。
+- 使用锁或队列：
+  - 加锁可以防止某一时刻大量的请求对数据库进行读写操作。
+  - 缺点：不适合并发场景。
+- 设置过期标志：
+  - 在缓存过期前，另起一个线程提前去更新缓存。
+- 将过期时间打散：
+  - 每个key的过期时间不一样，可以设置一个随机过期时间。
+
+# 五、SpringCloud
+
+## Hystrix
+
+- 服务降级（可稍后重试）
+  - 不让客户端等待，并立即返回一个友好提示。
+  - 原因：程序运行异常、超时、服务熔断触发降级、内存打满。
+- 服务熔断（直接拉闸）
+  - 达到最大访问量后，直接拒绝访问，拉闸限电，调用服务降级友好提示。
+  - 相当于保险丝。
+- 服务限流（限制访问）
+  - 秒杀高并发等操作，禁止一窝蜂进来抢，让大家排队，1秒N个。
+
+# 六、MySQL
+
+## 1.高可用
+
+参考：https://zhuanlan.zhihu.com/p/25960208
+
+> 采用主从2节点方式部署，利用半同步复制方式同步数据。
+
+**主从半同步复制：**
+
+使用双节点数据库，搭建单向或者双向的半同步复制。在5.7以后的版本中，由于lossless replication、logical多线程复制等一些列新特性的引入，使得MySQL原生半同步复制更加可靠。
+
+**半同步复制优化：**
+
+半用不复制发生超时后，断开重新连接，会以异步方式进行同步，当异步同步追赶到半同步复制起始位置，将恢复半同步复制。
+
+**binlog文件服务器：**
+
+binlog服务器正常情况下关闭，当半同步复制断开连接，主节点就会向binlog文件进行半同步复制。当主从节点恢复后，与文件服务器进行半同步复制。
