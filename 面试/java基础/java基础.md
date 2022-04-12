@@ -221,9 +221,32 @@ list.sort(Comparator.comparing(User::getId).thenComparing(User::getAge).reversed
 
 ## 7.HashMap
 
+**1）HashMap**
+
 ![image-20220328000344446](https://gitee.com/cnwanj/cloud_image/raw/master/image/image-20220328000344446.png)
 
+**为什么扩容为2次幂？**
+
+- 不需要重新计算hash值，以及元素的位置。
+- 使用位运算符<<进行扩容，效率高。
+
 每次扩容数量：容量 * 2 = 扩容后容量
+
+每次扩容数量：容量 * 2 = 扩容后容量
+
+**2）ConcurrentHashMap实现原理**
+
+- 数组+链表+红黑树、锁头节点。
+- 插入和扩容的时候锁定头结点，查询不会加锁。
+
+## 8.Java的IO流
+
+统一的方式来访问不同的输入源和输出源。
+
+- 数据的流向：分为输入流和输出流。
+- 数据的类型：分为字节流和字符流。字节为byte（8位），字符为char（16位）。
+
+> Java中的IO流主要有4个基类，分别为处理字节的InputStream和OutputStream，处以及理字符的Reader和Writer。
 
 # 二、Spring基础知识
 
@@ -489,7 +512,7 @@ RocketMQ回查：
 
 # 四、Redis
 
-## Redis数据类型
+Redis数据类型：
 
 String
 
@@ -597,6 +620,93 @@ set age 5 nx ex 10
 - 将过期时间打散：
   - 每个key的过期时间不一样，可以设置一个随机过期时间。
 
+## 5.持久化方式
+
+### 5.1 RDB（Redis Data Base）
+
+> 描述：RDB 持久化机制，是对 Redis 中的数据执行**周期性**的持久化。
+
+1）备份是如何执行的
+
+Redis会单独创建（fork）一个线程来进行持久化，会先将数据写入到一个临时文件中，待持久化过程结束，再用这个临时文件替换上次持久化好的文件。
+
+2）RDB的优缺点
+
+**优点：**是比AOF方式更加高效。
+
+**缺点：**
+
+- 最后一次持久化数据可能丢失，就是宕机的时候可能会丢失数据。
+- 单独创建子进程会占用2倍内存空间。
+- fork时使用"写时拷贝技术"（父子进程共用一段物理内存，父进程写的同时，拷贝数据给子进程），数据量大时比较消耗性能。
+
+3）RDB写机制
+
+/etc/redis.conf中设置save参数：
+
+```shell
+# 20秒内大于等于3个key发生变化时，进行持久化操作
+save 20 3
+```
+
+### 5.2 AOF（Append Only File）
+
+1）AOF描述：
+
+AOF 机制对每条写入（读不记录）命令作为日志，以追加 `append-only` 的模式写入一个日志文件中，在 Redis 重启的时候，可以通过`回放` AOF 日志中的写入指令来重新构建整个数据集。
+
+2）开启AOF（默认关闭）
+
+/etc/redis.conf中修改参数：
+
+```shell
+# 开启AOF
+appendonly yes
+# 输出日志文件名称，输出到挡墙目录下
+appendonlyname "appendonly.aof"
+```
+
+> 注意：若RDB和AOF同时开启，则默认使用AOF，重启时加载的是AOF日志中的数据。
+
+## 6.线程模型
+
+**1）redis工作流程原理**
+
+> IO多路复用监听机制，同时监听多个socket。内部使用单线程文件事件处理器，所以Redis才叫单线程模型。
+
+![image-20220331205359677](https://gitee.com/cnwanj/cloud_image/raw/master/image/image-20220331205359677.png)
+
+1.建立连接
+
+- `client socket`端发送建立连接请求。
+- 经过redis端的socket产生`AE_READABLE`事件
+- redis进程的`IO多路复用程序`监听到请求事件。
+- 将请求事件`AE_READABLE`压入到队列中。
+- `文件事件分派器`将事件分发到`连接应答处理器`进行处理。
+- 进行连接后`返回结果`到client socket。
+
+2.发送操作请求
+
+- client socket端发送`set key value`请求。
+- redis进程接收到请求后产生`AE_WRITABLE`事件。
+- `IO多路复用程序`监听到写事件。
+- 将`AE_WRITABLE`写事件压入队列中。
+- `文件事件分派器`将时间分发到`命令请求处理器`中。
+- 将key value写入到`redis内存`中。
+- 与命令回复处理器`关联`，并返回操作结果。
+
+3.返回结果
+
+- 流程与发送请求大致一样，在分派器中会分发到`命令回复处理器`进行处理。
+- 返回一个成功结果，并将AE_WRITABLE时间与回复处理器`解除关联`。
+
+**2）线程模型优势**
+
+- 采用非堵塞的IO多路复用监听机制。
+- 基于内存操作数据。
+- 底层采用C语言编写。
+- 避免了多线程上下文切换的性能开销。
+
 # 五、SpringCloud
 
 ## 断路器Hystrix
@@ -662,7 +772,7 @@ Spring Cloud Bus能管理和传播分布式系统间的消息，就像一个分�
 
 **描述：**负责服务之间调用的链路跟踪、监控，通过Zipkin展示Sleuth监控数据。
 
-## Nacos：
+## Nacos
 
 **描述：**
 
@@ -726,9 +836,10 @@ Spring Cloud Bus能管理和传播分布式系统间的消息，就像一个分�
 
 **复制3步骤：**
 
-- Master将写操作记录到二进制日志（binlog）；这些记录叫做二进制日志事件（binary log events）。
+- Master将写操作记录到二进制日志（binlog），这些记录叫做二进制日志事件（binary log events）。
 - Slave将Master的binary log events拷贝到中继日志（relay log）。
-- Slave重做中继日志中的时间，将改变应用到自己的数据库中。MySQL复制是异步的且串行化，重启后从接入点开始复制。
+- Slave重做中继日志中的事件，将日志操作应用到自己的数据库中。
+- MySQL复制是异步的且串行化，重启后从接入点开始复制。
 
 ## 2.存储引擎区别
 
@@ -808,4 +919,236 @@ select @@transaction_isolation;
 **不可重复读：**当前事务读取到另一个事务更新`已提交`的数据。
 
 **幻读：**`读取不到`另一个事务更新已提交的数据，插入刚刚已提交的数据会报错。
+
+## 6.MVCC
+
+### 1）什么是MVCC
+
+MVCC（Multiversion Concurrency Control）多版本并发控制。MVCC通过数据行的多个版本管理来实现数据库并发控制，使得在InnoDB的事务隔离级别下执行一致性操作有了保证。
+
+### 2）快照读和当前读
+
+MVCC在MySQL InnoDB中的实现主要是为了提高数据库并发性能，用更好的方式去处理`读-写冲突`，做到及时有读冲突时，也能不加锁，非堵塞并发访问，这个读指的是快照读，而非当前读。当前读实际上是一种加锁的操作，是悲观的实现，而MVCC本质是采用乐观锁的思想的一种方式。
+
+**快照读：**
+
+- 多版本的情况下，快照读可能不是最新的版本，而是历史版本。
+- 快照读的前提不能是串行级别，串行级别下快照读会自动降为当前读。
+
+**当前读：**读取的数据是当前最新版本，同时会对记录进行加锁。
+
+### 3）MVCC三大核心
+
+MVCC的三大核心为：隐藏字段、undo log版本链、ReadView读视图。
+
+**隐藏字段：**
+
+每行记录除了我们定义的字段外，还有隐式定义字段DB_ROW_ID、DB_TRX_ID、DB_ROLL_PTR等字段。
+
+- DB_ROW_ID（隐藏主键）：6字节，若数据表没有主键，则InnoDB自动生成一个row_id。
+- DB_TRX_ID（事务ID）：6字节，最近修改的事务id，记录最后或者最近一次修改的事务id。
+- DB_ROLL_PTR（回滚指针）：7字节，指向上一个版本，用来配合undo log，指向上一个旧版本。
+
+**undo log：**
+
+回滚日志，表示在更新操作的时候方便回滚日志。
+
+注意：当数据发生更新操作的时候只是设置旧记录的deleted_bit，并没有真正删除，为了节省磁盘空间，InnoDB有专门的purge线程来清除deleted_bit为true的记录，若某个记录的deleted_bit为true，并且DB_TRX_ID相对于purge线程的ReadView可见，那么这条记录可以被清除。
+
+**ReadView：**
+
+ReadView是事务进行快照读操作的时候生产的读视图。ReadView主要三个全局属性构成。
+
+- trx_list：一个数值列表，用来维护ReadView生成时刻系统正在活跃的ID。
+- up_limit_id：记录trx_list列表中最小的事务ID。
+- low_limit_id：最大事务ID未分配的下一个事务ID。
+
+### 总结
+
+MVCC只能在READ COMMITED、REPEATABLE READ这两种隔离级别的事务实现。
+
+- READ COMMITED：在每一次进行普通的selectt操作前都会生成一个ReadView。
+- REPEATABLE READ：制造第一次select查操作前生成ReadView，之后的查询操作都会复用这个ReadView。
+
+MVCC解决的问题：
+
+1. 读写之间堵塞问题：读和写互不堵塞，提升了事务并发处理能力。
+
+2. 降低了死锁的概率：版本控制，不需要加锁，采用乐观锁方式。
+
+3. 解决快照读问题：在查询数据库某个时间点的快照时，只能查询事务提交更新的结果，不能看到之后事务提交的结果。
+
+# 七、设计模式
+
+参考书籍：《重学Java设计模式》
+
+## 1.工厂模式
+
+**描述：**定义⼀个创建对象的接⼝，让其⼦类⾃⼰决定实例化哪⼀个⼯⼚类，⼯⼚模式使其创建过程延迟到⼦类进⾏。
+
+```java
+public class StoreFactory {
+    public ICommodity getCommodityService(Integer commodityType) {
+        if (null == commodityType) return null;
+        if (1 == commodityType) return new CouponCommodityService();
+        if (2 == commodityType) return new GoodsCommodityService();
+        if (3 == commodityType) return new CardCommodityService();
+        throw new RuntimeException("不存在的商品服务类型");
+    }
+}
+
+@Test
+public void test_commodity() throws Exception {
+	StoreFactory storeFactory = new StoreFactory();
+	// 1. 优惠券
+	ICommodity commodityService_1 = storeFactory.getCommodityService(1);
+	// 2. 实物商品
+	ICommodity commodityService_2 = storeFactory.getCommodityService(2);
+	// 3. 第三⽅兑换卡
+	ICommodity commodityService_3 = storeFactory.getCommodityService(3);
+}
+```
+
+**总结：**那么这样的开发的好处知道后，也可以总结出来它的优点；避免创建者与具体的产品逻辑耦合 ，满足单一职责，每一个业务逻辑实现都在所属自己的类中完成、满足开闭原则，无需更改使用调用方就可以在程序中引入新的产品类型。但这样也会带来一些问题，比如有非常多的奖品类型，那么实现的子类会极速扩张。因此也需要使用其他的模式进行优化，这些在后续的设计模式中会逐步涉及到。
+
+## 2.抽象工厂模式
+
+**描述：**抽象⼯⼚模式与⼯⼚⽅法模式虽然主要意图都是为了解决，接⼝选择问题。但在实现上，抽象⼯⼚是⼀个中⼼⼯⼚，创建其他⼯⼚的模式。
+
+```java
+// 通过代理类实现抽象工厂模式
+@Test
+public void test_CacheService() throws Exception {
+	CacheService proxy_EGM = JDKProxy.getProxy(CacheServiceImpl.class, new EGMCacheAdapter());
+	proxy_EGM.set("user_name_01","张三");
+	String val01 = proxy_EGM.get("user_name_01");
+	System.out.println(val01);
+
+	CacheService proxy_IIR = JDKProxy.getProxy(CacheServiceImpl.class, new IIRCacheAdapter());
+	proxy_IIR.set("user_name_01","张三");
+	String val02 = proxy_IIR.get("user_name_01");
+	System.out.println(val02);
+}
+```
+
+**总结：**那么这个设计模式满⾜：单⼀职责、开闭原则、解耦等优点，但如果说随着业务的不断拓展，可能会造成类实现上的复杂度。但也可以说算不上缺点，因为可以随着其他设计⽅式的引⼊和代理类以及⾃动⽣成加载的⽅式降低此项缺点。
+
+# 八、算法
+
+## 1.动态规划
+
+动态规划（Dynamic Programming）：如果有重复调用的过程，经过计算一遍之后，把答案记下来，下回再遇到重复过程直接调这个行为叫做动态规划。
+
+动态规划返回的就是暴力递归的一个缓存。
+
+**题目一**
+
+![image-20220405150247305](https://gitee.com/cnwanj/cloud_image/raw/master/image/image-20220405150247305.png)
+
+方法1：暴力递归
+
+```java
+public class Main {
+	/**
+	 * 暴力递归的方法进行求解，会有大量的重复计算，需要优化
+	 * @param start 当前位置
+	 * @param K	步数
+	 * @param aim	目标位置
+	 * @param n	数组长度
+	 * @return		当前位置经过步数后到达目标的方法有多少种
+	 */
+	public static int f1(int start, int K, int aim, int n) {
+		return dp1(start, K, aim, n);
+	}
+
+	public static int dp1(int cur, int step, int aim, int n) {
+		// 如果步数走完了，并且走到终点aim，则计一次路径，否则返回0
+		if (step == 0) {
+			return cur == aim ? 1 : 0;
+		}
+		// 若cur为1，只能走到2的位置
+		if (cur == 1) {
+			return f1(2, step - 1, aim, n);
+		}
+		// 若cur为n，只能走到n-1的位置
+		if (cur == n) {
+			return f1(n - 1, step - 1, aim, n);
+		}
+		// 如果在中间位置，则是左右两边都可以走
+		return f1(cur - 1, step - 1, aim, n) + f1(cur + 1, step - 1, aim, n);
+	}
+}
+```
+
+方法2：添加记忆数组
+
+```java
+public class Main {
+	/**
+	 * 通过记忆化方法，将已走过的值记录到一个二维数组中
+	 * @param start 当前位置
+	 * @param K	步数
+	 * @param aim	目标位置
+	 * @param n	数组长度
+	 * @return		当前位置经过步数后到达目标的方法有多少种
+	 */
+	public static int f2(int start, int K, int aim, int n) {
+		// cur和step为变量，只要这两个值确定，就将结果记录到记忆数组中
+		int[][] dp = new int[n + 1][K + 1];
+		for (int i = 0; i < dp.length; i++) {
+			// 初始化为-1
+			Arrays.fill(dp[i], -1);
+		}
+		return dp2(start, K, aim, n, dp);
+	}
+
+	private static int dp2(int cur, int step, int aim, int n, int[][] dp) {
+		if (step == 0) {
+			return cur == aim ? 1 : 0;
+		}
+		int value;
+		if (cur == 1) {
+			value = dp2(2, step - 1, aim, n, dp);
+		} else if (cur == n) {
+			value = dp2(n - 1, step - 1, aim, n, dp);
+		} else {
+			value = dp2(cur - 1, step - 1, aim, n, dp) + dp2(cur + 1, step - 1, aim, n, dp);
+		}
+		// 将已走过的记录下来
+		dp[cur][step] = value;
+		return value;
+	}
+}
+```
+
+方法3：最终动态规划
+
+```java
+public class Main {
+	/**
+	 * 最终版本
+	 * @param start 当前位置
+	 * @param K	步数
+	 * @param aim	目标位置
+	 * @param n	数组长度
+	 * @return		当前位置经过步数后到达目标的方法有多少种
+	 */
+	private static int f3(int start, int K, int aim, int n) {
+		int[][] dp = new int[n + 1][K + 1];
+		dp[aim][0] = 1;
+		// 列（从上到下，再从左到右）
+		for (int step = 1; step <= K; step++) {
+			// 第一行的值为左下角
+			dp[1][step] = dp[2][step - 1];
+			// 中间的值为左上角、左下角之和
+			for (int cur = 2; cur < n; cur++) {
+				dp[cur][step] = dp[cur - 1][step - 1] + dp[cur + 1][step - 1];
+			}
+			// 第n行的值为左上角
+			dp[n][step] = dp[n - 1][step - 1];
+		}
+		return dp[start][K];
+	}
+}
+```
 
