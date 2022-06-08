@@ -43,6 +43,14 @@ Callable<Integer> callable = () -> {
 FutureTask<Integer> task = new FutureTask<>(callable);
 new Thread(task).start();
 System.out.println(task.get());
+
+// 重写call方法
+Callable<Integer> callable = new Callable() {
+    @Override
+    public Object call() throws Exception {
+        return 3;
+    }
+};
 ```
 
 ## 2.MySQL和SQLServer的区别
@@ -127,7 +135,7 @@ public class UserServiceImpl implements UserService {
 
 这样事务也是不生效的，因为默认回滚的是：RuntimeException，如果你想触发其他异常的回滚，需要在注解上配置一下，如：@Transactional(rollbackFor = Exception.class)这个配置仅限于 Throwable 异常类及其子类。 
 
-> 为什么会失效呢？因为Spring在扫描Bean的时候会自动为标注了@Transactional注解的类生成一个代理类（proxy）,当有注解的方法被调用的时候，实际上是代理类调用的，代理类在调用之前会开启事务，执行事务的操作，但是同类中的方法互相调用，相当于this.B()，此时的B方法并非是代理类调用，而是直接通过原有的Bean直接调用，所以注解会失效。
+> 为什么会失效呢？因为@Transactional注解被代理类调用，没有注解的是非代理类调用，Spring在扫描Bean的时候会自动为标注了@Transactional注解的类生成一个代理类（proxy）,当有注解的方法被调用的时候，实际上是代理类调用的，代理类在调用之前会开启事务，执行事务的操作，但是同类中的方法互相调用，相当于this.B()，此时的B方法并非是代理类调用，而是直接通过原有的Bean直接调用，所以注解会失效。
 
 ## 3.取余和取模的区别
 
@@ -223,21 +231,32 @@ list.sort(Comparator.comparing(User::getId).thenComparing(User::getAge).reversed
 
 **1）HashMap**
 
-![image-20220328000344446](https://gitee.com/cnwanj/cloud_image/raw/master/image/image-20220328000344446.png)
+![image-20220328000344446](https://cnwanj.gitee.io/cloud_image/image/image-20220328000344446.png)
 
 **为什么扩容为2次幂？**
 
+每次扩容数量：容量 * 2 = 扩容后容量
+
 - 不需要重新计算hash值，以及元素的位置。
 - 使用位运算符<<进行扩容，效率高。
-
-每次扩容数量：容量 * 2 = 扩容后容量
-
-每次扩容数量：容量 * 2 = 扩容后容量
 
 **2）ConcurrentHashMap实现原理**
 
 - 数组+链表+红黑树、锁头节点。
 - 插入和扩容的时候锁定头结点，查询不会加锁。
+- 锁头结点，线程安全，防止其他线程操作。
+
+**3）ConcurrentHashMap和HashTable**
+
+ConcurrentHashMap：
+
+- JDK1.7：分段数组（synchronized） + 链表。
+- JDK1.8：数组 + 链表/红黑树 + synchronized + CAS并发控制。
+
+HashTable：
+
+- JDK1.7：数组 + 链表 + synchronized
+- JDK1.8：数组 + 链表/红黑树 + synchronized
 
 ## 8.Java的IO流
 
@@ -247,6 +266,27 @@ list.sort(Comparator.comparing(User::getId).thenComparing(User::getAge).reversed
 - 数据的类型：分为字节流和字符流。字节为byte（8位），字符为char（16位）。
 
 > Java中的IO流主要有4个基类，分别为处理字节的InputStream和OutputStream，处以及理字符的Reader和Writer。
+
+## 9.线程池
+
+参考：《JDK1.8手册》
+
+**线程创建的5种方式：**
+
+- Executors.newFixedThreadPool()：固定数量的线程操作了共享无界队列。
+- Executors.newSingleThreadExecutor()：一个线程池中只有一个线程。
+- Executors.newCachedThreadPool()：可以设置线程失效时间。
+- Executors.newScheduledThreadPool()：可以调度命令在一个给定的延迟后运行，或周期性地执行。
+- Executors.newWorkStealingPool()：创建一个工作线程池使用偷`JAVA虚拟机处理器数`为目标的并行度。 
+
+**拒绝策略：**
+
+新任务提交方法 execute(Runnable)将被拒绝时，遗嘱执行人已被关闭，并且在采用有限范围内最大线程和工作队列容量和饱和。提供了四个预定义的处理政策： 
+
+- 在默认ThreadPoolExecutor.AbortPolicy：拒绝线程并抛异常。 
+- 在ThreadPoolExecutor.CallerRunsPolicy：堵塞线程，最终都会执行。 
+- 在ThreadPoolExecutor.DiscardPolicy：拒绝线程不抛异常。 
+- 在ThreadPoolExecutor.DiscardOldestPolicy：将旧线程移除，执行新线程 。
 
 # 二、Spring基础知识
 
@@ -407,9 +447,9 @@ public class ProxyTest {
 
 ## 3.消息丢失怎么解决？
 
-> 消息丢失可能会发生在：生产者、MQ、消费者
+**1）RabbitMQ**
 
-这里通过RabbitMQ来描述：
+> 消息丢失可能会发生在：生产者、MQ、消费者
 
 - 生产者丢失：
   - 生产者在发送数据到MQ时，因为网络故障导致消息丢失。
@@ -424,6 +464,17 @@ public class ProxyTest {
   - 关闭自动ack回应。
   - 在代码中进行自定义ack。
   - 若一直没有ack，MQ会把这个消息分配给其他消费者消费。
+
+**2）RocketMQ**
+
+采用同步刷盘：
+
+- 异步刷盘：默认。消息写入 CommitLog 时，并不会直接写入磁盘，而是先写入 PageCache 缓存后返回成功，然后用后台线程异步把消息刷入磁盘。异步刷盘提高了消息吞吐量，但是可能会有消息丢失的情况，比如断点导致机器停机，PageCache 中没来得及刷盘的消息就会丢失。
+- 同步刷盘：消息写入内存后，立刻请求刷盘线程进行刷盘，如果消息未在约定的时间内(默认 5 s)刷盘成功，就返回 FLUSH_DISK_TIMEOUT，Producer 收到这个响应后，可以进行重试。同步刷盘策略保证了消息的可靠性，同时降低了吞吐量，增加了延迟。
+
+要开启同步刷盘，需要增加下面配置：
+
+>flushDiskType=SYNC_FLUSH
 
 ## 4.MQ之间的区别
 
@@ -476,9 +527,16 @@ RabbitMQ：拆分多个queue，一个queue对应一个consumer，然后consumer�
 
 - **Commit/Rollback（确认阶段）：**该阶段主要是把prepared消息保存到consumeQueue中，即让消费端可以看到此消息，也就是可以消费此消息。
 
+**业务流程：**
+
+- A扣款之前，先发送预备消息。
+- 然后再执行扣款操作。
+- 扣款成功后，发送确认消息。
+- B看到确认消息，进行消息消费，并加钱。
+
 **异常问题：**
 
-如果发送预备消息成功，执行本地事务成功，但发送确认消息失败；这个就有问题了，因为用户A扣款成功了，但加钱业务没有订阅到确认消息，无法加钱。这里出现了数据不一致。
+如果发送预备消息成功，执行本地事务成功，但发送确认消息失败；这个就有问题了，因为用户A扣款成功了，但用户B加钱业务没有订阅到确认消息，无法加钱。这里出现了数据不一致。
 
 **解决：**
 
@@ -506,9 +564,63 @@ RocketMQ回查：
 
 - 对于同一操作，发起一次请求和多次求的结果都一致，接口重复请求和重复消费都会导致幂等性问题。
 - 解决：
-  - 全局唯一ID：发送消息时传入唯一键，判断是否相同，相同则拒绝操作，不相同就允许操作，并存入数据库中，之后拒绝相同唯一键的请求。
+  - 全局唯一ID：调用接口时传入唯一键，判断是否相同，相同则拒绝操作，不相同就允许操作，并存入数据库中，之后拒绝相同唯一键的请求。
   - 去重表：将已消费的数据记录到表中，下次进行消费时进行判断，防止重复消费。
   - 多版本并发控制：适合做更新请求，在更新的时候加一个版本号做判断。
+
+## 9.高级功能
+
+### 1）消息存储和发送
+
+**存储：**
+
+磁盘如果使用得当，磁盘的速度完全可以匹配上网络的数据传输速度。目前的高性能磁盘，顺序写速度可以达到60OMB/s，超过了一般网卡的传输速度。但是磁盘随机写的速度只有大概10OKB/s，和顺序写的性能相差6000倍!因为有如此巨大的速度差别，好的消息队列系统会比普通的消息队列系统速度快多个数量级。RocketMQ的消息用顺序写,保证了消息存储的速度。
+
+**发送：**
+
+Linux操作系统分为【用户态】和【内核态】，文件操作、网络操作需要涉及这两种形态的切换，免不了进行数据复制。一台服务器把本机磁盘文件的内容发送到客户端，一般分为两个步骤：
+
+- read：读取本地文件内容。
+- write：将读取的内容通过网络发送出去。
+
+具体进行了四个步骤：
+
+1. 从磁盘复制数据到内核态内存。
+
+2. 从内核态内存复制到用户态内存。
+
+3. 然后从用户态内存复制到网络驱动的内核态内存。
+
+4. 最后是从网络驱动的内核态内存复制到网卡中进行传输。
+
+![image-20220424213739229](https://cnwanj.gitee.io/cloud_image/image/image-20220424213739229.png)
+
+通过使用mmap的方式，可以省去向`用户态`的内存复制，提高速度。这种机制在Java中是通过MappedByteBuffer实现的RocketMQ充分利用了上述特性，也就是所谓的“零拷贝"很术，提高消息存盘和网络发送的速度。
+
+> 这里需要注意的是，采用MappedByteBuffer这种内存映射的方式有几个限制，其中之一是一次只能映射1.5~2G的文至用户态的虚拟内存，这也是为何RocketMQ默认设置单个CommitLog日志数据文件为1G的原因了。
+
+### 2）消息存储结构
+
+RocketMQ消息的存储是由ConsumeQueue和CommitLog配合完成的，消息真正的物理存储文件是CommitLog，ConsumeQueue是消息的逻辑队列，类似数据库的索引文件，存储的是指向物理存储的地址。每个Topic下的每个MessageQueue都有一个对应的ConsumeQueue文件。
+
+![image-20220424215104519](https://cnwanj.gitee.io/cloud_image/image/image-20220424215104519.png)
+
+- CommitLog：存储消息的元数据。
+- ConsumerQueue：存储消息在CommitLog的索引。
+- IndexFile：为了消息查询提供了一种通过key或时间区间来查询消息的方法，这种通过IndexFile来查找消息的方法不影响发送与消费消息的主流程。
+
+### 3）高可用
+
+2主2从的Broker集群模式，主节点写消息，从节点读消息。
+
+- 消息生产者（Producer）：当其中一个主节点挂了，还有另一个节点支撑，防止生产者消息丢失。
+- 消息消费者（Consumer）：优先从主节点读取数据，当主节点繁忙或者不可用的时候，会自动切换到从Slave读，达到了高可用性。
+
+![image-20220424220209617](https://cnwanj.gitee.io/cloud_image/image/image-20220424220209617.png)
+
+## 10.Kafka对比
+
+参考：https://www.jianshu.com/p/35fcd6e0bc93
 
 # 四、Redis
 
@@ -674,7 +786,7 @@ appendonlyname "appendonly.aof"
 
 > IO多路复用监听机制，同时监听多个socket。内部使用单线程文件事件处理器，所以Redis才叫单线程模型。
 
-![image-20220331205359677](https://gitee.com/cnwanj/cloud_image/raw/master/image/image-20220331205359677.png)
+![image-20220331205359677](https://cnwanj.gitee.io/cloud_image/image/image-20220331205359677.png)
 
 1.建立连接
 
@@ -706,6 +818,24 @@ appendonlyname "appendonly.aof"
 - 基于内存操作数据。
 - 底层采用C语言编写。
 - 避免了多线程上下文切换的性能开销。
+
+## 7.Redis与MySQL数据一致
+
+参考：https://baijiahao.baidu.com/s?id=1721101366549602034&wfr=spider&for=pc
+
+读取缓存步骤一般没有什么问题，但是一旦涉及到数据更新：数据库和缓存更新，就容易出现缓存(Redis)和数据库（MySQL）间的数据一致性问题。
+
+不管是先写MySQL数据库，再删除Redis缓存；还是先删除缓存，再写库，都有可能出现数据不一致的情况。
+
+> 例如：
+>
+> 1.如果删除了缓存Redis，还没有来得及写库MySQL，另一个线程就来读取，发现缓存为空，则到数据库中读取数据，写入缓存，此时缓存中为脏数据。
+>
+> 2.如果先写了库，在删除缓存前，写库的线程宕机了，没有删除掉缓存，则也会出现数据不一致情况。
+
+**采用延时双删策略：**
+
+更新数据库前删除缓存，更新后延迟再次删除缓存。
 
 # 五、SpringCloud
 
@@ -751,7 +881,7 @@ Spring Cloud Bus能管理和传播分布式系统间的消息，就像一个分�
 
 描述：为微服务提供集中化的外部配置支持，为微服务各个实例环境提供一个中心化的外部配置。
 
-![image-20220319152132615](https://gitee.com/cnwanj/cloud_image/raw/master/image/image-20220319152132615.png)
+![image-20220319152132615](https://cnwanj.gitee.io/cloud_image/image/image-20220319152132615.png)
 
 ## Stream绑定器
 
@@ -774,6 +904,8 @@ Spring Cloud Bus能管理和传播分布式系统间的消息，就像一个分�
 
 ## Nacos
 
+官网：https://spring.io/projects/spring-cloud-alibaba
+
 **描述：**
 
 - 全称Naming Configuration service，可以做注册中心和配置中心服务，同时可以做负载均衡（默认整合了Ribbon）。
@@ -782,13 +914,13 @@ Spring Cloud Bus能管理和传播分布式系统间的消息，就像一个分�
 
 **Nacos和其他注册中心对比**
 
-![image-20220319223145407](upload/image-20220319223145407.png)
+![image-20220319223145407](https://cnwanj.gitee.io/cloud_image/image/image-20220319223145407.png)
 
 ## Sentinel
 
 特性：可以防止服务雪崩、服务降级、服务熔断、服务限流等功能。
 
-![Sentinel-features-overview](https://gitee.com/cnwanj/cloud_image/raw/master/image/50505538-2c484880-0aaf-11e9-9ffc-cbaaef20be2b.png)
+![Sentinel-features-overview](https://cnwanj.gitee.io/cloud_image/image/50505538-2c484880-0aaf-11e9-9ffc-cbaaef20be2b.png)
 
 **流量控制：**
 
@@ -832,7 +964,7 @@ Spring Cloud Bus能管理和传播分布式系统间的消息，就像一个分�
 > - 部分从节点数量同步完成会返回给客户端。
 > - 可以设置参数（rpl_semi_sync_master_wait_for_slave_count）调整应答从库数量。
 
-![image-20220324230254863](https://gitee.com/cnwanj/cloud_image/raw/master/image/image-20220324230254863.png)
+![image-20220324230254863](https://cnwanj.gitee.io/cloud_image/image/image-20220324230254863.png)
 
 **复制3步骤：**
 
@@ -883,20 +1015,20 @@ Spring Cloud Bus能管理和传播分布式系统间的消息，就像一个分�
 
 - 判断用户的权限是否可以执行，然后会调用存储引擎API，选择对应的引擎执行。
 
-![image-20220323225145275](https://gitee.com/cnwanj/cloud_image/raw/master/image/image-20220323225145275.png)
+![image-20220323225145275](https://cnwanj.gitee.io/cloud_image/image/image-20220323225145275.png)
 
 ## 4.ACID特性
 
-**原子性（Atomicity）：**原子性指的是一次操作不可分割，要么全部成功，要么全部失败。
+**原子性（Atomicity）：** 原子性指的是一次操作不可分割，要么全部成功，要么全部失败。
 
 **一致性（Consistency）：**
 
 - 一致性是指事务前后，数据从一个合法性状态到另一个合法性状态，即满足预定约束的状态。
 - 举例：A账户有10块，转账20块出去，A账户余额为-10，导致数据不一致性，因为余额必须>=0。
 
-**隔离性（Isolation）：**一个事务的执行不能被另一个事务干扰。
+**隔离性（Isolation）：** 一个事务的执行不能被另一个事务干扰。
 
-**持久性（Durability）：**一个事务一旦被提交，数据库中的数据是永久性改变。
+**持久性（Durability）：** 一个事务一旦被提交，数据库中的数据是永久性改变。
 
 ## 5.事务隔离级别
 
@@ -935,7 +1067,7 @@ MVCC在MySQL InnoDB中的实现主要是为了提高数据库并发性能，用�
 - 多版本的情况下，快照读可能不是最新的版本，而是历史版本。
 - 快照读的前提不能是串行级别，串行级别下快照读会自动降为当前读。
 
-**当前读：**读取的数据是当前最新版本，同时会对记录进行加锁。
+**当前读：** 读取的数据是当前最新版本，同时会对记录进行加锁。
 
 ### 3）MVCC三大核心
 
@@ -957,17 +1089,19 @@ MVCC的三大核心为：隐藏字段、undo log版本链、ReadView读视图。
 
 **ReadView：**
 
-ReadView是事务进行快照读操作的时候生产的读视图。ReadView主要三个全局属性构成。
+ReadView是事务进行快照读操作的时候生产的读视图。ReadView主要由三个全局属性构成。
 
 - trx_list：一个数值列表，用来维护ReadView生成时刻系统正在活跃的ID。
 - up_limit_id：记录trx_list列表中最小的事务ID。
 - low_limit_id：最大事务ID未分配的下一个事务ID。
 
+![image-20220507000640703](https://cnwanj.gitee.io/cloud_image/image/image-20220507000640703.png)
+
 ### 总结
 
 MVCC只能在READ COMMITED、REPEATABLE READ这两种隔离级别的事务实现。
 
-- READ COMMITED：在每一次进行普通的selectt操作前都会生成一个ReadView。
+- READ COMMITED：在每一次进行普通的select操作前都会生成一个ReadView。
 - REPEATABLE READ：制造第一次select查操作前生成ReadView，之后的查询操作都会复用这个ReadView。
 
 MVCC解决的问题：
@@ -978,9 +1112,83 @@ MVCC解决的问题：
 
 3. 解决快照读问题：在查询数据库某个时间点的快照时，只能查询事务提交更新的结果，不能看到之后事务提交的结果。
 
+## 7.索引
+
+**1）索引覆盖**
+
+一个索引包含了满足查询结果的数据就叫做覆盖索引。
+
+```sql
+# 创建索引idx_name_age
+create index idx_name_age on user(name, age);
+
+# 会使用覆盖索引，因为结果name、age都在复合索引中
+select name, age from user where name = 'zs';
+
+# 使用覆盖索引，会回表查询（id不在复合索引中，会重新使用id索引查询），
+select id, name, age from user where name = 'zs';
+
+# 不会使用索引，查询结果为所有列，索引没有将结果都覆盖
+select * from user where name = 'zs';
+```
+
+**2）索引下推**
+
+Index Condition Pushdown（ICP）索引条件下推，是MySQL 5.6中的新特性，是一种在存储引擎层使用索引过滤数据的优化方式。
+
+> 使用explain查看Extra为Using index condition，则是使用了索引下推。
+
+```sql
+# 创建索引idx_name
+create index idx_name on user(name);
+
+# 使用了索引下推，索引为name会下推到条件age
+select * from user where name = 'zs' and age = 3;
+```
+
+- 没有使用索引下推：查询`name='zs'`筛选出结果为100条，这期间则回表查询了100次，然后再这结果基础上进行条件为`age=3`的查询出结果为10条。
+- 使用了索引下推：查询`name='zs'`过滤出100条结果，这时不回表，继续进行后一个条件`age=3`过滤出10条结果，这时候再进行回表查询10次，就减少了随机IO的读写。
+
+## 8.设计范式
+
+在关系型数据库中、关于数据表设计的基本原则、规则称为范式（Normal Form，简称NF），范式向下兼容。
+
+**第一范式（1st NF）：**每个字段要保持原子性，不可再拆分。
+
+| 用户编号 | 姓名 | 用户信息       |
+| -------- | ---- | -------------- |
+| 1001     | 张三 | 13岁，男，广西 |
+
+- 不符合第一范式，用户信息不是原子性，还可以继续拆分。
+
+**第二范式（2nd NF）：**每个非主键字段都必须完全依赖主键，不能部分依赖主键。
+
+| 学号_课程号 | 姓名 | 课程名称        | 成绩 |
+| ----------- | ---- | --------------- | ---- |
+| 1001_01     | 张三 | MySQL数据库原理 | 99   |
+| 1002_01     | 李四 | MySQL数据库原理 | 98   |
+
+- 不符合第二范式，姓名部分依赖了主键（学号），课程名称也是，只有成绩完全依赖主键。
+- 弊端：
+  - 冗余：存在大量冗余数据，如课程名称。
+  - 新增：只想添加课程，还不确定哪些学生选课，就没发插入。
+  - 修改：修改课程名称时，需要修改多条数据。
+  - 删除：若想把所有学生删除，想保留课程，却无法完成。
+
+**第三范式（3rd NF）：**每个非主键字段都必须直接依赖主键，非主键字段之间不能存在依赖关系。
+
+| 学号 | 姓名 | 课程号 | 课程名称        |
+| ---- | ---- | ------ | --------------- |
+| 1001 | 张三 | 01     | MySQL数据库原理 |
+
+- 不满足第三范式，课程名称依赖于课程号，课程号依赖于学号（课程名称 > 课程号 > 学号），字段存在冗余。
+- 为了提升查询速度，避免连表查询带来的开销，会冗余部分字段（空间换时间）。
+
 # 七、设计模式
 
-参考书籍：《重学Java设计模式》
+参考：《重学Java设计模式》、https://refactoringguru.cn、https://runoob.com/design-pattern
+
+设计模式分为三大类：创建型模式、结构型模式、行为模式。
 
 ## 1.工厂模式
 
@@ -1033,6 +1241,12 @@ public void test_CacheService() throws Exception {
 
 **总结：**那么这个设计模式满⾜：单⼀职责、开闭原则、解耦等优点，但如果说随着业务的不断拓展，可能会造成类实现上的复杂度。但也可以说算不上缺点，因为可以随着其他设计⽅式的引⼊和代理类以及⾃动⽣成加载的⽅式降低此项缺点。
 
+## 3.观察者模式
+
+当对象间存在一对多关系时，则使用观察者模式（Observer Pattern）。比如，当一个对象被修改时，则会自动通知依赖它的对象。观察者模式属于行为型模式。
+
+
+
 # 八、算法
 
 ## 1.动态规划
@@ -1043,7 +1257,7 @@ public void test_CacheService() throws Exception {
 
 **题目一**
 
-![image-20220405150247305](https://gitee.com/cnwanj/cloud_image/raw/master/image/image-20220405150247305.png)
+![image-20220405150247305](https://cnwanj.gitee.io/cloud_image/image/image-20220405150247305.png)
 
 方法1：暴力递归
 
@@ -1151,4 +1365,5 @@ public class Main {
 	}
 }
 ```
+
 
